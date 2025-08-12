@@ -1,0 +1,566 @@
+import csv
+import datetime as dt
+import json
+import pathlib
+import re
+from abc import ABC, abstractmethod
+from typing import Optional
+
+import typer
+
+
+class ToMarkdown(ABC):
+    """Abstract base class for converting files to Markdown format.
+
+    This class provides functionality to load file content and convert it to
+    markdown representation. Concrete subclasses must implement the `to_markdown()`
+    method to define specific conversion logic.
+
+    Attributes:
+        file_name: Path to the file to be converted.
+        text: Content of the loaded file.
+        markdown: The markdown representation after conversion.
+        error_str: Error message if file loading fails.
+        date_stamp: Whether to include timestamp in the output.
+    """
+
+    def __init__(self, file_name: str, date_stamp: bool = False, **kwargs):
+        self.file_name: str = file_name
+        self.text: str = self.load_file()
+        self.markdown: str = ""
+        self.error_str: str = ""
+        self.date_stamp: bool = date_stamp
+        # Store remaining kwargs if needed
+        self.kwargs = kwargs
+
+
+    def file_time_stamp_md(self,
+                           file_path: str | None = None,
+                           tag:str='small',
+                           tfmt="%H:%M:%S",
+                           dfmt="%Y-%m-%d") -> str:
+        """Generate a markdown header with filename and file's modification datetime in small text.
+
+        Args:
+            file_path: The path to the file. If None, uses self.file_name.
+            tag: HTML tag to wrap the output text, defaults to 'small'.
+            tfmt: Time format string for strftime, defaults to "%H:%M:%S".
+            dfmt: Date format string for strftime, defaults to "%Y-%m-%d".
+
+        Returns:
+            Markdown formatted text with filename and datetime.
+
+        Example:
+            '<small>data.csv &nbsp;&nbsp; 14:32:05 2023-08-21</small>'
+
+        Raises:
+            FileNotFoundError: If the specified file does not exist.
+            PermissionError: If permission is denied to access the file.
+            OSError: For other OS-related errors.
+        """
+
+        file_path = file_path or self.file_name
+
+        # Note that these tags ove opening and closing backticks to make fixed pitch small font
+        open_tag = f"<{tag}>" if tag  else ''
+        close_tag = f"</{tag}>" if tag  else ''
+        # Create Path object
+        path = pathlib.Path(file_path)
+
+        try:
+
+            # Get file's modification time
+            ts = dt.datetime.fromtimestamp(path.stat().st_mtime)
+
+            # This inserts the text in small text
+            markdown = f"{open_tag}{path.name} &nbsp;&nbsp;" \
+                       f" { ts.strftime(tfmt)} {ts.strftime(dfmt)}{close_tag}"
+
+            return markdown
+        except FileNotFoundError:
+            # File doesn't exist
+            return f"{open_tag}{path.name} WARNING:(file not found){close_tag}"
+
+        except PermissionError:
+            # No permission to access the file
+            return f"{open_tag}{path.name} WARNING:(permission denied){close_tag}"
+
+        except OSError as e:
+            # Other OS-related errors
+            return f"{open_tag}{path.name} (WARNING: {str(e)}){close_tag}"
+
+    def load_file(self, file_name: str | None = None):
+        file_name = file_name or self.file_name
+        try:
+            with open(file_name, 'r') as file:
+                self.text = file.read()
+        except (FileNotFoundError,FileExistsError,IOError,PermissionError) as e:
+            self.error_str = str(e)
+            self.text = ''
+
+        return self.text
+
+    @abstractmethod
+    def to_markdown(self):
+        """Subclasses must override this method."""
+
+    def to_full_markdown(self):
+        """Generate full markdown including any headers and footers that might be configured.
+
+        The method calls to_markdown() and adds timestamp footer if date_stamp is True.
+
+        Returns:
+            The complete markdown representation.
+        """
+
+        md = self.to_markdown()
+
+        if self.date_stamp:
+            md = f"{md}\n{self.file_time_stamp_md()}\n"
+
+        return md
+
+
+class MarkdownToMarkdown(ToMarkdown):
+
+    def to_markdown(self):
+        return f"\n{self.text}\n"
+
+
+class TextToMarkdown(ToMarkdown):
+    def __init__(self, file_name: str,date_stamp:bool, **kwargs):
+        super().__init__(file_name,date_stamp, **kwargs)
+
+    def to_markdown(self):
+        return f"```\n{self.text}\n```"
+
+class JsonToMarkdown(ToMarkdown):
+
+    def to_markdown(self):
+        formatted_json = json.dumps(json.loads(self.text), indent=4)
+        return f"```json\n{formatted_json}\n```"
+
+class CsvToMarkdown(ToMarkdown):
+    def __init__(self, file_name: str,date_stamp:bool, **kwargs):
+        # Extract CSV-specific parameters before calling super()
+        self.auto_break = kwargs.pop('auto_break', True)
+        self.bold_vals = kwargs.pop('bold_vals', [])
+
+        # Pass remaining kwargs to super
+        super().__init__(file_name,date_stamp, **kwargs)
+
+
+    def to_markdown(self):
+        try:
+            with open(self.file_name, 'r') as csv_file:
+                reader = csv.reader(csv_file)
+
+                # Read all rows from the CSV
+                rows = list(reader)
+
+                if not rows:
+                    return "The CSV file is empty."
+
+                # Prepare the Markdown table header
+                header = rows[0]
+
+                # Insert line breaks
+                if self.auto_break:
+                    header = [h.replace(" ", "<br>").replace("_", "<br>") for h in header]
+
+                markdown = "| " + " | ".join(header) + " |\n"
+                markdown += "| " + " | ".join(["---"] * len(header)) + " |\n"
+
+                # Add the rows
+                for row in rows[1:]:
+                    formatted_row = []
+                    for item in row:
+                        try:
+                            if item in self.bold_vals:
+                                item = f"-> **{item}** <-"
+                            # Check if the item is numeric (can be converted to a float)
+                            number = float(item)
+                            # Format as a 2-significant-figure float (if it's not an integer)
+                            if number.is_integer() and '.' not in str(number):
+                                formatted_row.append(f"{int(number)}")  # Keeps integers as they are
+                            else:
+                                formatted_row.append(f"{number:.02f}")
+                        except ValueError:
+                            # If not numeric, keep the item as-is
+                            formatted_row.append(item)
+
+                    markdown += "| " + " | ".join(formatted_row) + " |\n"
+
+                return markdown
+        except FileNotFoundError:
+            return f"Error: File '{self.file_name}' not found."
+        except Exception as e:
+            return f"Error: An error occurred while processing the file: {e}"
+
+
+class CodeToMarkdown(ToMarkdown):
+    def __init__(self, file_name: str, language: str, date_stamp: bool = False, **kwargs):
+        super().__init__(file_name, date_stamp, **kwargs)
+        self.language = language
+
+    def to_markdown(self):
+        return f"```{self.language}\n{self.text}\n```"
+
+def markdown_factory(filename: str, date_time: bool, **kwargs):
+    """
+    Creates the appropriate markdown converter based on file extension.
+
+    This factory function examines the provided filename's extension and instantiates
+    the corresponding converter class. All keyword arguments are passed through to
+    the converter's constructor, allowing each converter to use parameters relevant
+    to its functionality.
+
+    Args:
+        filename (str): Path to the file that needs conversion to markdown.
+        date_time (bool): Whether to include timestamp in the output.
+        **kwargs: Additional keyword arguments that will be passed to the converter.
+            CSV-specific parameters:
+                auto_break (bool): Whether to insert line breaks in CSV headers.
+                bold_vals (list): List of values to be bolded in CSV tables.
+
+    Returns:
+        ToMarkdown: An instance of the appropriate converter subclass:
+            - MarkdownToMarkdown: For .md files
+            - CodeToMarkdown: For code files (.py, .java, .js, etc.)
+            - CsvToMarkdown: For .csv files
+            - JsonToMarkdown: For .json files
+            - TextToMarkdown: For unrecognized file types
+
+    """
+    # Convert filename to Path object and get the extension
+    path = pathlib.Path(filename)
+    ext = path.suffix.lower()
+
+    # Map of file extensions to language identifiers for code blocks
+    # Some languages have multiple possible extensions
+    language_map = {
+        # Python
+        '.py': 'python',
+        '.pyw': 'python',
+        '.pyx': 'python',
+        '.pyi': 'python',
+
+        # JavaScript
+        '.js': 'javascript',
+        '.mjs': 'javascript',
+        '.cjs': 'javascript',
+
+        # TypeScript
+        '.ts': 'typescript',
+        '.tsx': 'typescript',
+
+        # INI
+        '.ini': 'ini',
+        '.cfg': 'ini',
+        '.conf': 'ini',
+        '.properties': 'ini',
+
+        # Java
+        '.java': 'java',
+
+        # C/C++
+        '.c': 'c',
+        '.h': 'c',
+        '.cpp': 'cpp',
+        '.cc': 'cpp',
+        '.cxx': 'cpp',
+        '.hpp': 'cpp',
+        '.hxx': 'cpp',
+
+        # C#
+        '.cs': 'csharp',
+
+        # PHP
+        '.php': 'php',
+        '.phtml': 'php',
+        '.php5': 'php',
+        '.phps': 'php',
+
+        # Ruby
+        '.rb': 'ruby',
+        '.rake': 'ruby',
+        '.gemspec': 'ruby',
+
+        # Go
+        '.go': 'go',
+
+        # Rust
+        '.rs': 'rust',
+        '.rlib': 'rust',
+
+        # Swift
+        '.swift': 'swift',
+
+        # Kotlin
+        '.kt': 'kotlin',
+        '.kts': 'kotlin',
+
+        # SQL
+        '.sql': 'sql',
+
+        # Web technologies
+        '.html': 'html',
+        '.htm': 'html',
+        '.xhtml': 'html',
+        '.css': 'css',
+        '.scss': 'scss',
+        '.sass': 'scss',
+        '.less': 'less',
+
+        # Shell/Bash
+        '.sh': 'bash',
+        '.bash': 'bash',
+        '.zsh': 'bash',
+        '.fish': 'bash',
+
+        # YAML
+        '.yaml': 'yaml',
+        '.yml': 'yaml',
+
+        # XML
+        '.xml': 'xml',
+        '.xsd': 'xml',
+        '.xsl': 'xml',
+
+        # Markdown
+        '.md': 'markdown',
+        '.markdown': 'markdown',
+
+        # JSON
+        '.json': 'json',
+        '.jsonc': 'json',
+
+        # Other common languages
+        '.r': 'r',
+        '.pl': 'perl',
+        '.pm': 'perl',
+        '.lua': 'lua',
+        '.elm': 'elm',
+        '.hs': 'haskell',
+        '.lhs': 'haskell',
+        '.scala': 'scala',
+        '.clj': 'clojure',
+        '.erl': 'erlang',
+        '.ex': 'elixir',
+        '.exs': 'elixir',
+        '.dart': 'dart',
+        '.groovy': 'groovy',
+        '.jl': 'julia',
+        '.m': 'matlab',
+        '.ps1': 'powershell',
+        '.tf': 'terraform',
+        '.dockerfile': 'dockerfile',
+    }
+
+    # Special case handlers
+    special_handlers = {
+        '.md': MarkdownToMarkdown,
+        '.markdown': MarkdownToMarkdown,
+        '.csv': CsvToMarkdown,
+        '.json': JsonToMarkdown,
+    }
+
+    # Check for special handlers first
+    if ext in special_handlers:
+        return special_handlers[ext](filename, date_time, **kwargs)
+    # For code files with recognized extensions
+    elif ext in language_map:
+        return CodeToMarkdown(filename, language_map[ext], date_time, **kwargs)
+    # Default case for unrecognized file types
+    else:
+        return TextToMarkdown(filename, date_time, **kwargs)
+
+def update_markdown_from_string(content: str,
+                                bold: str,
+                                date_stamp: bool,
+                                auto_break: bool,
+                                now_ :dt.datetime|None=None) -> str:
+    """
+    Parse a Markdown string and replace special placeholders with actual file contents.
+
+    Supported placeholders:
+        1. <!--file <filename>--> : Replaces with the Markdown table generated based on file extension
+
+    Args:
+        content (str): The Markdown content as a string.
+        bold (str): Whether to apply bold styling for certain values.
+        date_stamp (bool): Whether to include a date stamp in the Markdown output.
+        auto_break (bool): Whether to auto-wrap content.
+
+    Returns:
+        str: The updated Markdown content with placeholders replaced.
+    """
+    # Allow now to be passed in for testing.
+    now_ = now_ or dt.datetime.now()
+
+    try:
+        # Regex to find <!--file ...--> blocks
+        file_pattern = r'<!--file\s+(.+?)-->(.*?)<!--file end-->'
+        file_matches = re.finditer(file_pattern, content, re.DOTALL)
+        file_matches = list(file_matches)
+
+        new_content = content
+
+        # Process file insertions
+        for match in file_matches:
+            # Extract options for processing
+            kwargs = {
+                'bold_vals': bold.split(",") if bold else [],
+                'auto_break': auto_break,
+            }
+
+            file_name = match.group(1).strip()  # Extract the file name
+            md_gen = markdown_factory(file_name, date_stamp, **kwargs)
+            markdown_text = md_gen.to_full_markdown()
+
+            # Replace the block with the Markdown table
+            old_block = match.group(0)  # Original block (<!--file ...--> ... <!--file end-->)
+            new_block = f"<!--file {file_name}-->\n{markdown_text}\n<!--file end-->"
+            new_content = new_content.replace(old_block, new_block)
+
+        return new_content
+
+    except Exception as e:
+        typer.echo(f"An error occurred while updating the Markdown: {e}", err=True)
+        return content  # Return original content in the case of error
+
+
+def update_markdown_file(
+        md_file: str,
+        bold: str = '',
+        date_stamp: bool = False,
+        auto_break: bool = False,
+        now_: dt.datetime | None = None,
+        out_file: str | None = None,
+) -> str:
+    """
+    Updates a Markdown (.md) file with specified modifications (handled by update_markdown_from_string).
+    The file update can be overridden by providing an out_file parameter. The normal use case
+    is to update a Markdown file in place.
+
+    Args:
+        md_file (str): Path to the Markdown file to be read.
+        bold (str, optional): String to be added in bold text format. Defaults to an empty string.
+        date_stamp (bool): If True, inserts the current date or a provided date into the file.
+        auto_break (bool): If True, applies automatic line breaking within the content.
+        now_ (datetime.datetime, optional): Optional datetime object used for inserting
+            a date stamp. If not provided, the current date and time will be used.
+        out_file (str, optional): If provided, writes the updated Markdown content to this file.
+            Otherwise, updates the original file.
+
+    Returns:
+        str: Updated content of the Markdown file after modifications.
+
+    Raises:
+        FileNotFoundError: If the specified `md_file` is not found.
+        Exception: If an unexpected error occurs during the update process.
+    """
+    try:
+        # Read file content
+        with open(md_file, 'r') as file:
+            content = file.read()
+
+        # Call the string-based update function
+        updated_content = update_markdown_from_string(
+            content, bold, date_stamp, auto_break, now_
+        )
+
+        # Write updated content to the specified output file
+        out_file = out_file or md_file
+        with open(out_file, 'w') as file_out:
+            file_out.write(updated_content)
+
+        return updated_content
+
+    except FileNotFoundError as fnf_error:
+        raise FileNotFoundError(f"File '{md_file}' not found.") from fnf_error
+
+    except Exception as e:
+        raise Exception(f"An unexpected error occurred: {e}") from e
+
+def handle_update_markdown_file(
+        md_file: str,
+        bold: str = '',
+        date_stamp: bool = False,
+        auto_break: bool = False,
+        now_: dt.datetime | None = None,
+        out_file: str | None = None,
+)->str:
+    """
+    Wrapper for `update_markdown_file` that integrates with Typer for CLI interaction.
+
+    Args:
+        md_file (str): Path to the Markdown file to be read.
+        bold (str, optional): String to be added in bold text format. Defaults to an empty string.
+        date_stamp (bool): If True, inserts the current date or a provided date into the file.
+        auto_break (bool): If True, applies automatic line breaking within the content.
+        now_ (datetime.datetime, optional): Optional datetime object used for inserting
+            a date stamp. If not provided, the current date and time will be used.
+        out_file (str, optional): File to save the updated content. Defaults to overwriting
+            the input file.
+
+    Returns:
+        None
+    """
+    try:
+        updated_content = update_markdown_file(
+            md_file, bold, date_stamp, auto_break, now_, out_file
+        )
+
+        typer.echo(f"File '{md_file}' updated successfully.", err=True)
+    except FileNotFoundError as e:
+        typer.echo(f"Error: {e}", err=True)
+    except Exception as e:
+        typer.echo(f"An unexpected error occurred: {e}", err=True)
+
+    return updated_content
+app = typer.Typer()
+
+@app.command()
+def convert(
+    file_name: str = typer.Argument("../README.md", help="The file to convert to Markdown"),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Output file (if not specified, prints to stdout)"
+    ),
+    bold_values: Optional[str] = typer.Option(
+        None, "--bold", "-b", help="Comma-separated values to make bold (for CSV files)"
+    ),
+    date_stamp: Optional[bool] = typer.Option(
+        True, "--date-stamp/--no-date-stamp", "-d", help="Add datetime stamp to file output"
+    ),
+    auto_break: Optional[bool] = typer.Option(
+        True, "--auto-break/--no-auto-break", help="Disable automatic line breaks in CSV headers"
+    ),
+):
+    """Convert a file to Markdown based on its extension."""
+    try:
+
+        markdown_text = handle_update_markdown_file(file_name,
+                                                    bold=bold_values,
+                                                    date_stamp=date_stamp,
+                                                    auto_break=auto_break)
+
+        if output:
+            with open(output, "w") as file:
+                file.write(markdown_text)
+            typer.echo(f"Markdown written to {output}",err=True)
+        else:
+            if markdown_text:
+                typer.echo(markdown_text)
+            else:
+                typer.echo("An Error Occurred",err=True)
+
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+
+if __name__ == "__main__":
+    app()
+    #update_markdown_file("../README.md")
