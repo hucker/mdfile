@@ -1,13 +1,12 @@
-import pytest
+import datetime as dt
+import pathlib
 import tempfile
 
-
+import pytest
 from typer.testing import CliRunner
-import pathlib
-import datetime as dt
-from markymark.mnm import update_markdown_file,ToMarkdown,CsvToMarkdown
-from markymark.mnm import update_markdown_from_string,CodeToMarkdown,app
 
+from markymark.mnm import CsvToMarkdown, ToMarkdown
+from markymark.mnm import app, update_markdown_from_string
 
 runner = CliRunner()
 
@@ -30,7 +29,7 @@ def test_update_file_from_another_file():
     """
     try:
         # Paths for the markdown file and the input text file
-        md_file_path =  pathlib.Path("123_test.md")
+        md_file_path = pathlib.Path("123_test.md")
         input_file_path = pathlib.Path("123_test.txt")
 
         # Write initial content to the markdown file
@@ -47,7 +46,7 @@ def test_update_file_from_another_file():
 
         # Run the Typer CLI app with the `convert` command
         # Pass arguments in a single string with spaces instead of as separate items
-        result = runner.invoke(app, [ str(md_file_path),'--no-date-stamp'])
+        result = runner.invoke(app, [str(md_file_path), '--no-date-stamp'])
 
         # Expected content of the updated markdown file
         expected_md_file_content = f"<!--file 123_test.txt-->\n```\nHello\nWorld\n```\n<!--file end-->"
@@ -139,7 +138,7 @@ def test_update_markdown_csv_file(tmp_path):
     # Input and expected file paths
     input_md_file = input_dir / "example.md"
     input_csv_file = input_dir / "test.csv"
-    expected_output_file =  pathlib.Path("output/example_output.md")
+    expected_output_file = pathlib.Path("output/example_output.md")
 
     content = input_md_file.read_text()
 
@@ -151,12 +150,12 @@ def test_update_markdown_csv_file(tmp_path):
         auto_break=False
     )
 
-
     # Read the expected Markdown
     expected_output = expected_output_file.read_text()
 
     # Assert that the result matches the expected output
     assert expected_output == result, f"Output did not match:\n{result}"
+
 
 def test_update_markdown_csv_br_file(tmp_path):
     """
@@ -170,7 +169,7 @@ def test_update_markdown_csv_br_file(tmp_path):
     # Input and expected file paths
     input_md_file = input_dir / "example.md"
     input_csv_file = input_dir / "test.csv"
-    expected_output_file =  pathlib.Path("output/example_output_br.md")
+    expected_output_file = pathlib.Path("output/example_output_br.md")
 
     content = input_md_file.read_text()
 
@@ -181,7 +180,6 @@ def test_update_markdown_csv_br_file(tmp_path):
         date_stamp=False,
         auto_break=True
     )
-
 
     # Read the expected Markdown
     expected_output = expected_output_file.read_text()
@@ -202,7 +200,7 @@ def test_update_markdown_csv_date_file(tmp_path):
     # Input and expected file paths
     input_md_file = input_dir / "example.md"
     input_csv_file = input_dir / "test.csv"
-    expected_output_file =  pathlib.Path("output/example_output_date.md")
+    expected_output_file = pathlib.Path("output/example_output_date.md")
 
     content = input_md_file.read_text()
 
@@ -212,9 +210,8 @@ def test_update_markdown_csv_date_file(tmp_path):
         bold='',
         date_stamp=True,
         auto_break=False,
-        now_ = dt.datetime(2023, 1, 1, 12, 34, 56)
+        now_=dt.datetime(2023, 1, 1, 12, 34, 56)
     )
-
 
     # Read the expected Markdown
     expected_output = expected_output_file.read_text()
@@ -235,7 +232,7 @@ def test_update_markdown_python_file(tmp_path):
     # Input and expected file paths
     input_md_file = input_dir / "example_python.md"
     input_py_file = input_dir / "python.py"
-    expected_output_file =  pathlib.Path("output/example_python.md")
+    expected_output_file = pathlib.Path("output/example_python.md")
 
     content = input_md_file.read_text()
 
@@ -253,6 +250,7 @@ def test_update_markdown_python_file(tmp_path):
     # Assert that the result matches the expected output
     assert expected_output == result, f"Output did not match:\n{result}"
     return
+
 
 @pytest.mark.parametrize("lang, code_ext", [
     ("junk", "junk"),
@@ -296,6 +294,7 @@ def test_update_markdown_code_file(tmp_path, lang, code_ext):
 
     # Assert that the result matches the expected output
     assert expected_output == result, f"Output did not match for {lang}:\n{result}"
+
 
 def test_csv_to_markdown_file_not_found():
     # Define a non-existent file path
@@ -373,5 +372,3 @@ def test_file_time_stamp_md_tag_parameter():
         no_tag_result = converter.file_time_stamp_md(str(temp_file), tag="")
         assert "<" not in no_tag_result
         assert ">" not in no_tag_result
-
-

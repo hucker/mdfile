@@ -1,3 +1,34 @@
+"""
+MarkDown File Manipulation (MNM) - Tools for converting various file formats to Markdown.
+
+This module provides functionality to convert different file types to Markdown format
+for inclusion in documentation, reports, or Markdown-based websites. It supports a variety
+of formats including CSV, JSON, code files with syntax highlighting, and plain text.
+
+The module offers both a programmatic API through various converter classes and a command-line
+interface through Typer. The main features include:
+
+1. Automatic file format detection based on file extension
+2. Conversion of CSV files to Markdown tables with customizable formatting
+3. Pretty-printing and syntax highlighting for JSON and code files
+4. Direct inclusion of existing Markdown files
+5. Addition of file timestamps and other metadata
+6. A file-reference system that can update Markdown files by replacing special comment tags
+
+Key components:
+- ToMarkdown: Abstract base class for all converters
+- Various format-specific converter classes (CsvToMarkdown, JsonToMarkdown, etc.)
+- markdown_factory: Factory function to create the appropriate converter
+- Command-line interface for converting files or updating Markdown files with file references
+
+Usage examples:
+    # As a module
+    converter = markdown_factory("data.csv", date_stamp=True, bold_vals=["Important"])
+    markdown_text = converter.to_full_markdown()
+
+    # Via CLI
+    # python mnm.py convert report.md --bold "Important,Critical" --date-stamp
+"""
 import csv
 import datetime as dt
 import json
@@ -90,9 +121,31 @@ class ToMarkdown(ABC):
             return f"{open_tag}{path.name} (WARNING: {str(e)}){close_tag}"
 
     def load_file(self, file_name: str | None = None):
+        """Load the content of a file into the text attribute.
+
+        Reads the file specified by file_name (or the instance's file_name if not provided)
+        and stores its content in the text attribute. If any file-related error occurs,
+        the error message is stored in the error_str attribute and text is set to an empty string.
+
+        Args:
+            file_name: Path to the file to load. If None, uses self.file_name.
+
+        Returns:
+            The content of the file as a string, or an empty string if an error occurred.
+
+        Side effects:
+            - Sets self.text to the file content
+            - Sets self.error_str to an error message if any exception occurs
+
+        Exceptions handled:
+            - FileNotFoundError: When the file doesn't exist
+            - FileExistsError: When there's an issue with file existence
+            - IOError: For general I/O errors
+            - PermissionError: When access to the file is denied
+        """
         file_name = file_name or self.file_name
         try:
-            with open(file_name, 'r') as file:
+            with open(file_name, 'r',encoding='utf8') as file:
                 self.text = file.read()
         except (FileNotFoundError,FileExistsError,IOError,PermissionError) as e:
             self.error_str = str(e)
@@ -122,25 +175,31 @@ class ToMarkdown(ABC):
 
 
 class MarkdownToMarkdown(ToMarkdown):
-
+    """Directly inserts the contents of a Markdown file into the output."""
     def to_markdown(self):
         return f"\n{self.text}\n"
 
 
 class TextToMarkdown(ToMarkdown):
+    """Converts plain text files to Markdown code blocks."""
     def __init__(self, file_name: str,date_stamp:bool, **kwargs):
         super().__init__(file_name,date_stamp, **kwargs)
 
     def to_markdown(self):
+        """Returns the text content wrapped in a plain Markdown code block."""
         return f"```\n{self.text}\n```"
 
 class JsonToMarkdown(ToMarkdown):
+    """Converts JSON files to formatted Markdown code blocks with syntax highlighting."""
 
     def to_markdown(self):
+        """Returns the JSON content as a formatted, indented block with json syntax."""
         formatted_json = json.dumps(json.loads(self.text), indent=4)
         return f"```json\n{formatted_json}\n```"
 
 class CsvToMarkdown(ToMarkdown):
+    """Converts JSON files to formatted Markdown code blocks with syntax highlighting."""
+
     def __init__(self, file_name: str,date_stamp:bool, **kwargs):
         # Extract CSV-specific parameters before calling super()
         self.auto_break = kwargs.pop('auto_break', True)
@@ -152,7 +211,7 @@ class CsvToMarkdown(ToMarkdown):
 
     def to_markdown(self):
         try:
-            with open(self.file_name, 'r') as csv_file:
+            with open(self.file_name, 'r',encoding='utf8') as csv_file:
                 reader = csv.reader(csv_file)
 
                 # Read all rows from the CSV
@@ -199,6 +258,8 @@ class CsvToMarkdown(ToMarkdown):
 
 
 class CodeToMarkdown(ToMarkdown):
+    """Converts code formatted Markdown based on the fil extension of the file."""
+
     def __init__(self, file_name: str, language: str, date_stamp: bool = False, **kwargs):
         super().__init__(file_name, date_stamp, **kwargs)
         self.language = language
@@ -368,12 +429,13 @@ def markdown_factory(filename: str, date_time: bool, **kwargs):
     # Check for special handlers first
     if ext in special_handlers:
         return special_handlers[ext](filename, date_time, **kwargs)
+
     # For code files with recognized extensions
-    elif ext in language_map:
+    if ext in language_map:
         return CodeToMarkdown(filename, language_map[ext], date_time, **kwargs)
+
     # Default case for unrecognized file types
-    else:
-        return TextToMarkdown(filename, date_time, **kwargs)
+    return TextToMarkdown(filename, date_time, **kwargs)
 
 def update_markdown_from_string(content: str,
                                 bold: str,
@@ -384,7 +446,7 @@ def update_markdown_from_string(content: str,
     Parse a Markdown string and replace special placeholders with actual file contents.
 
     Supported placeholders:
-        1. <!--file <filename>--> : Replaces with the Markdown table generated based on file extension
+        1. <!--file <filename>--> : Replaces with the Markdown table based on file extension
 
     Args:
         content (str): The Markdown content as a string.
@@ -439,9 +501,9 @@ def update_markdown_file(
         out_file: str | None = None,
 ) -> str:
     """
-    Updates a Markdown (.md) file with specified modifications (handled by update_markdown_from_string).
-    The file update can be overridden by providing an out_file parameter. The normal use case
-    is to update a Markdown file in place.
+    Updates a Markdown (.md) file with specified modifications (handled by
+    update_markdown_from_string). The file update can be overridden by providing an out_file
+    parameter. The normal use case is to update a Markdown file in place.
 
     Args:
         md_file (str): Path to the Markdown file to be read.
@@ -462,7 +524,7 @@ def update_markdown_file(
     """
     try:
         # Read file content
-        with open(md_file, 'r') as file:
+        with open(md_file, 'r',encoding='utf8') as file:
             content = file.read()
 
         # Call the string-based update function
@@ -472,7 +534,7 @@ def update_markdown_file(
 
         # Write updated content to the specified output file
         out_file = out_file or md_file
-        with open(out_file, 'w') as file_out:
+        with open(out_file, 'w',encoding='utf8') as file_out:
             file_out.write(updated_content)
 
         return updated_content
@@ -519,7 +581,8 @@ def handle_update_markdown_file(
         typer.echo(f"An unexpected error occurred: {e}", err=True)
 
     return updated_content
-app = typer.Typer()
+
+app = typer.Typer(add_completion=False)
 
 @app.command()
 def convert(
@@ -546,7 +609,7 @@ def convert(
                                                     auto_break=auto_break)
 
         if output:
-            with open(output, "w") as file:
+            with open(output, "w",encoding='utf8') as file:
                 file.write(markdown_text)
             typer.echo(f"Markdown written to {output}",err=True)
         else:
@@ -563,4 +626,3 @@ def convert(
 
 if __name__ == "__main__":
     app()
-    #update_markdown_file("../README.md")
