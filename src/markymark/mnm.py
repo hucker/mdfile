@@ -1,6 +1,6 @@
 #!/user/bin/env -S uv run --script
 # /// script
-# dependencies = ["typer"]
+# dependencies = ["typer","rich"]
 # ///
 """
 MarkDown File Manipulation (MNM) - Tools for converting various file formats to Markdown.
@@ -35,6 +35,9 @@ import csv
 import json
 import pathlib
 import re
+from rich.console import Console
+from rich.markdown import Markdown
+
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -539,6 +542,10 @@ def convert(
     auto_break: Optional[bool] = typer.Option(
         True, "--auto-break/--no-auto-break", help="Disable automatic line breaks in CSV headers"
     ),
+    plain: bool = typer.Option(
+        False, "--plain", help="Output plain markdown without rich formatting"
+    ),
+
 ):
     """Convert a file to Markdown based on its extension."""
     try:
@@ -553,7 +560,15 @@ def convert(
             typer.echo(f"Markdown written to {output}",err=True)
         else:
             if markdown_text:
-                typer.echo(markdown_text)
+                if not plain:
+                    # Use Rich to display formatted markdown
+                    console = Console()
+                    md = Markdown(markdown_text)
+                    console.print(md)
+                else:
+                    # Output plain markdown
+                    typer.echo(markdown_text)
+
             else:
                 typer.echo("An Error Occurred",err=True)
 

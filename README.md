@@ -78,7 +78,6 @@ Total,490000,528000,543000,645000,2206000
 Here's a breakdown of our quarterly sales by region:
 
 <!--file sales_data.csv-->
-<!-- No files found matching pattern 'sales_data.csv' -->
 <!--file end-->
 
 As we can see from the data, Q4 had the strongest performance across all regions.
@@ -106,7 +105,6 @@ Here's a breakdown of our quarterly sales by region:
 | West | 117000 | 142000 | 138000 | 162000 | 559000 |
 | **Total** | **490000** | **528000** | **543000** | **645000** | **2206000** |
 
-<small>File: sales_data.csv - Last updated: 2023-07-15 10:45:22</small>
 
 As we can see from the data, Q4 had the strongest performance across all regions.
 
@@ -119,7 +117,6 @@ As we can see from the data, Q4 had the strongest performance across all regions
 The default configuration is:
 
 <!--file path/to/config.json-->
-<!-- No files found matching pattern 'path/to/config.json' -->
 <!--file end-->
 ```
 ## File Type Support
@@ -157,17 +154,27 @@ When converting CSV files, you have additional options:
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --output              -o                     TEXT  Output file (if not specified, prints to stdout) [default: None]      │
 │ --bold                -b                     TEXT  Comma-separated values to make bold (for CSV files) [default: None]   │
-│ --date-stamp          -d  --no-date-stamp          Add datetime stamp to file output [default: date-stamp]               │
 │ --auto-break              --no-auto-break          Disable automatic line breaks in CSV headers [default: auto-break]    │
 │ --help                                             Show this message and exit.                                           │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
+### UV Run
+It wouldn't be an example unless we showed you that you can run `mnm` with `uv` without knowing anything beyond
+installing `uv` on your machine by taking advantage of support for [PEP 723](https://peps.python.org/pep-0723/). 
 
-### Convert a Python file with timestamp
-``` bash
-python -m mnm utils.py -o utils_docs.md
-```
+ASSUMING that you have `uv` installed on your machine and that you have `mnm.py installed on your machine
+
+This is the recommended way of using `mnm`.
+
+```bash
+uv run mnm.py ../README_template.md --output ../README.md
+````
+
+
+
+
+
 ### Convert a CSV file with bold totals
 ``` bash
 python -m mnm sales_data.csv --bold "Total,Sum" -o sales_report.md
