@@ -46,7 +46,7 @@ def test_update_file_from_another_file():
 
         # Run the Typer CLI app with the `convert` command
         # Pass arguments in a single string with spaces instead of as separate items
-        result = runner.invoke(app, [str(md_file_path), '--no-date-stamp'])
+        result = runner.invoke(app, [str(md_file_path)])
 
         # Expected content of the updated markdown file
         expected_md_file_content = f"<!--file 123_test.txt-->\n```\nHello\nWorld\n```\n<!--file end-->"
@@ -100,7 +100,6 @@ def test_update_file_with_output_flag():
         # Run the Typer CLI app with the `convert` command and output flag
         result = runner.invoke(app, [
             str(md_file_path),
-            '--no-date-stamp',
             '--output',
             str(output_file_path)
         ])
@@ -146,7 +145,6 @@ def test_update_markdown_csv_file(tmp_path):
     result = update_markdown_from_string(
         content=content,
         bold=False,
-        date_stamp=False,
         auto_break=False
     )
 
@@ -177,7 +175,6 @@ def test_update_markdown_csv_br_file(tmp_path):
     result = update_markdown_from_string(
         content=content,
         bold=False,
-        date_stamp=False,
         auto_break=True
     )
 
@@ -187,37 +184,6 @@ def test_update_markdown_csv_br_file(tmp_path):
     # Assert that the result matches the expected output
     assert expected_output == result, f"Output did not match:\n{result}"
 
-
-def test_update_markdown_csv_date_file(tmp_path):
-    """
-    Test the update_markdown_file function using actual Markdown and CSV files.
-    """
-
-    # Base directories for input and expected files
-    input_dir = pathlib.Path("input")
-    expected_dir = pathlib.Path("expected")
-
-    # Input and expected file paths
-    input_md_file = input_dir / "example.md"
-    input_csv_file = input_dir / "test.csv"
-    expected_output_file = pathlib.Path("output/example_output_date.md")
-
-    content = input_md_file.read_text()
-
-    # Call the function, processing Markdown with placeholders
-    result = update_markdown_from_string(
-        content=content,
-        bold='',
-        date_stamp=True,
-        auto_break=False,
-        now_=dt.datetime(2023, 1, 1, 12, 34, 56)
-    )
-
-    # Read the expected Markdown
-    expected_output = expected_output_file.read_text()
-
-    # Assert that the result matches the expected output
-    assert expected_output == result, f"Output did not match:\n{result}"
 
 
 def test_update_markdown_python_file(tmp_path):
@@ -240,7 +206,6 @@ def test_update_markdown_python_file(tmp_path):
     result = update_markdown_from_string(
         content=content,
         bold='',
-        date_stamp=False,
         auto_break=False,
     )
 
@@ -285,7 +250,6 @@ def test_update_markdown_code_file(tmp_path, lang, code_ext):
     result = update_markdown_from_string(
         content=content,
         bold='',
-        date_stamp=False,
         auto_break=False,
     )
 
@@ -304,7 +268,7 @@ def test_csv_to_markdown_file_not_found():
     assert not pathlib.Path(non_existent_file).exists()
 
     # Create an instance of CsvToMarkdown
-    converter = CsvToMarkdown(non_existent_file, date_stamp=False)
+    converter = CsvToMarkdown(non_existent_file)
 
     # Check that the error message is correct
     markdown_output = converter.to_markdown()
@@ -312,63 +276,5 @@ def test_csv_to_markdown_file_not_found():
     assert "Error: File 'non_existent_file.csv' not found." in markdown_output
 
 
-class TestableToMarkdown(ToMarkdown):
-    """Simple concrete implementation of ToMarkdown for testing purposes."""
-
-    def to_markdown(self):
-        return self.text
 
 
-def test_file_time_stamp_md_file_not_found():
-    """Test that file_time_stamp_md handles FileNotFoundError correctly.
-
-    This test verifies that when a non-existent file is provided to the
-    file_time_stamp_md method, it returns a proper warning message.
-    """
-    # Use a file path that definitely doesn't exist
-    non_existent_file = pathlib.Path("this_file_does_not_exist.txt")
-
-    # Ensure the file doesn't exist
-    non_existent_file.unlink(missing_ok=True)
-    assert not non_existent_file.exists()
-
-    # Create an instance with any file name (doesn't matter for this test)
-    converter = TestableToMarkdown("test_file.txt")
-
-    # Call the method with the non-existent file path
-    result = converter.file_time_stamp_md(str(non_existent_file))
-
-    # Check that the result contains the expected warning
-    assert "WARNING:(file not found)" in result
-    assert non_existent_file.name in result
-    assert "<small>" in result
-    assert "</small>" in result
-
-
-def test_file_time_stamp_md_tag_parameter():
-    """Test that file_time_stamp_md correctly uses the tag parameter.
-
-    This test verifies that the method properly wraps the output with
-    the HTML tag specified in the tag parameter.
-    """
-    # Create a temporary file that exists
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_file = pathlib.Path(temp_dir) / "temp_file.txt"
-        temp_file.touch()
-
-        converter = TestableToMarkdown("test_file.txt")
-
-        # Test with default tag (small)
-        default_result = converter.file_time_stamp_md(str(temp_file))
-        assert "<small>" in default_result
-        assert "</small>" in default_result
-
-        # Test with custom tag
-        custom_result = converter.file_time_stamp_md(str(temp_file), tag="div")
-        assert "<div>" in custom_result
-        assert "</div>" in custom_result
-
-        # Test with no tag
-        no_tag_result = converter.file_time_stamp_md(str(temp_file), tag="")
-        assert "<" not in no_tag_result
-        assert ">" not in no_tag_result

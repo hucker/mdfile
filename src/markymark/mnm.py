@@ -1,3 +1,7 @@
+#!/user/bin/env -S uv run --script
+# /// script
+# dependencies = ["typer"]
+# ///
 """
 MarkDown File Manipulation (MNM) - Tools for converting various file formats to Markdown.
 
@@ -5,8 +9,8 @@ This module provides functionality to convert different file types to Markdown f
 for inclusion in documentation, reports, or Markdown-based websites. It supports a variety
 of formats including CSV, JSON, code files with syntax highlighting, and plain text.
 
-The module offers both a programmatic API through various converter classes and a command-line
-interface through Typer. The main features include:
+The intended interface is the command-line through Typer and more specifically to
+be used with `uv run`. The main features include:
 
 1. Automatic file format detection based on file extension
 2. Conversion of CSV files to Markdown tables with customizable formatting
@@ -21,16 +25,13 @@ Key components:
 - markdown_factory: Factory function to create the appropriate converter
 - Command-line interface for converting files or updating Markdown files with file references
 
-Usage examples:
-    # As a module
-    converter = markdown_factory("data.csv", date_stamp=True, bold_vals=["Important"])
-    markdown_text = converter.to_full_markdown()
+NOTE: This module is SUPPOSED to be a single file so it is easy to use as a tool with uv.
 
+Usage example:
     # Via CLI
-    # python mnm.py convert report.md --bold "Important,Critical" --date-stamp
+    # python mnm.py report.md --bold "Important,Critical"
 """
 import csv
-import datetime as dt
 import json
 import pathlib
 import re
@@ -52,75 +53,19 @@ class ToMarkdown(ABC):
         text: Content of the loaded file.
         markdown: The markdown representation after conversion.
         error_str: Error message if file loading fails.
-        date_stamp: Whether to include timestamp in the output.
     """
 
-    def __init__(self, file_name: str, date_stamp: bool = False, **kwargs):
+    def __init__(self, file_name: str, **kwargs):
         self.file_name: str = file_name
         self.text: str = self.load_file()
         self.markdown: str = ""
         self.error_str: str = ""
-        self.date_stamp: bool = date_stamp
         # Store remaining kwargs if needed
         self.kwargs = kwargs
 
 
-    def file_time_stamp_md(self,
-                           file_path: str | None = None,
-                           tag:str='small',
-                           tfmt="%H:%M:%S",
-                           dfmt="%Y-%m-%d") -> str:
-        """Generate a markdown header with filename and file's modification datetime in small text.
 
-        Args:
-            file_path: The path to the file. If None, uses self.file_name.
-            tag: HTML tag to wrap the output text, defaults to 'small'.
-            tfmt: Time format string for strftime, defaults to "%H:%M:%S".
-            dfmt: Date format string for strftime, defaults to "%Y-%m-%d".
-
-        Returns:
-            Markdown formatted text with filename and datetime.
-
-        Example:
-            '<small>data.csv &nbsp;&nbsp; 14:32:05 2023-08-21</small>'
-
-        Raises:
-            FileNotFoundError: If the specified file does not exist.
-            PermissionError: If permission is denied to access the file.
-            OSError: For other OS-related errors.
-        """
-
-        file_path = file_path or self.file_name
-
-        # Note that these tags ove opening and closing backticks to make fixed pitch small font
-        open_tag = f"<{tag}>" if tag  else ''
-        close_tag = f"</{tag}>" if tag  else ''
-        # Create Path object
-        path = pathlib.Path(file_path)
-
-        try:
-
-            # Get file's modification time
-            ts = dt.datetime.fromtimestamp(path.stat().st_mtime)
-
-            # This inserts the text in small text
-            markdown = f"{open_tag}{path.name} &nbsp;&nbsp;" \
-                       f" { ts.strftime(tfmt)} {ts.strftime(dfmt)}{close_tag}"
-
-            return markdown
-        except FileNotFoundError:
-            # File doesn't exist
-            return f"{open_tag}{path.name} WARNING:(file not found){close_tag}"
-
-        except PermissionError:
-            # No permission to access the file
-            return f"{open_tag}{path.name} WARNING:(permission denied){close_tag}"
-
-        except OSError as e:
-            # Other OS-related errors
-            return f"{open_tag}{path.name} (WARNING: {str(e)}){close_tag}"
-
-    def load_file(self, file_name: str | None = None):
+    def load_file(self, file_name: str | None = None)->str:
         """Load the content of a file into the text attribute.
 
         Reads the file specified by file_name (or the instance's file_name if not provided)
@@ -168,8 +113,6 @@ class ToMarkdown(ABC):
 
         md = self.to_markdown()
 
-        if self.date_stamp:
-            md = f"{md}\n{self.file_time_stamp_md()}\n"
 
         return md
 
@@ -182,8 +125,8 @@ class MarkdownToMarkdown(ToMarkdown):
 
 class TextToMarkdown(ToMarkdown):
     """Converts plain text files to Markdown code blocks."""
-    def __init__(self, file_name: str,date_stamp:bool, **kwargs):
-        super().__init__(file_name,date_stamp, **kwargs)
+    def __init__(self, file_name: str, **kwargs):
+        super().__init__(file_name, **kwargs)
 
     def to_markdown(self):
         """Returns the text content wrapped in a plain Markdown code block."""
@@ -200,13 +143,13 @@ class JsonToMarkdown(ToMarkdown):
 class CsvToMarkdown(ToMarkdown):
     """Converts JSON files to formatted Markdown code blocks with syntax highlighting."""
 
-    def __init__(self, file_name: str,date_stamp:bool, **kwargs):
+    def __init__(self, file_name: str, **kwargs):
         # Extract CSV-specific parameters before calling super()
         self.auto_break = kwargs.pop('auto_break', True)
         self.bold_vals = kwargs.pop('bold_vals', [])
 
         # Pass remaining kwargs to super
-        super().__init__(file_name,date_stamp, **kwargs)
+        super().__init__(file_name, **kwargs)
 
 
     def to_markdown(self):
@@ -260,14 +203,14 @@ class CsvToMarkdown(ToMarkdown):
 class CodeToMarkdown(ToMarkdown):
     """Converts code formatted Markdown based on the fil extension of the file."""
 
-    def __init__(self, file_name: str, language: str, date_stamp: bool = False, **kwargs):
-        super().__init__(file_name, date_stamp, **kwargs)
+    def __init__(self, file_name: str, language: str, **kwargs):
+        super().__init__(file_name,  **kwargs)
         self.language = language
 
     def to_markdown(self):
         return f"```{self.language}\n{self.text}\n```"
 
-def markdown_factory(filename: str, date_time: bool, **kwargs):
+def markdown_factory(filename: str, **kwargs):
     """
     Creates the appropriate markdown converter based on file extension.
 
@@ -278,7 +221,6 @@ def markdown_factory(filename: str, date_time: bool, **kwargs):
 
     Args:
         filename (str): Path to the file that needs conversion to markdown.
-        date_time (bool): Whether to include timestamp in the output.
         **kwargs: Additional keyword arguments that will be passed to the converter.
             CSV-specific parameters:
                 auto_break (bool): Whether to insert line breaks in CSV headers.
@@ -428,37 +370,34 @@ def markdown_factory(filename: str, date_time: bool, **kwargs):
 
     # Check for special handlers first
     if ext in special_handlers:
-        return special_handlers[ext](filename, date_time, **kwargs)
+        return special_handlers[ext](filename,  **kwargs)
 
     # For code files with recognized extensions
     if ext in language_map:
-        return CodeToMarkdown(filename, language_map[ext], date_time, **kwargs)
+        return CodeToMarkdown(filename, language_map[ext],  **kwargs)
 
     # Default case for unrecognized file types
-    return TextToMarkdown(filename, date_time, **kwargs)
+    return TextToMarkdown(filename,  **kwargs)
 
 def update_markdown_from_string(content: str,
                                 bold: str,
-                                date_stamp: bool,
-                                auto_break: bool,
-                                now_ :dt.datetime|None=None) -> str:
+                                auto_break: bool) -> str:
     """
     Parse a Markdown string and replace special placeholders with actual file contents.
 
     Supported placeholders:
-        1. <!--file <filename>--> : Replaces with the Markdown table based on file extension
+        1. <!--file <glob_pattern>--> : Replaces with the Markdown tables based on file extension
+           for all files matching the glob pattern
 
     Args:
         content (str): The Markdown content as a string.
         bold (str): Whether to apply bold styling for certain values.
-        date_stamp (bool): Whether to include a date stamp in the Markdown output.
         auto_break (bool): Whether to auto-wrap content.
 
     Returns:
         str: The updated Markdown content with placeholders replaced.
     """
     # Allow now to be passed in for testing.
-    now_ = now_ or dt.datetime.now()
 
     try:
         # Regex to find <!--file ...--> blocks
@@ -476,13 +415,28 @@ def update_markdown_from_string(content: str,
                 'auto_break': auto_break,
             }
 
-            file_name = match.group(1).strip()  # Extract the file name
-            md_gen = markdown_factory(file_name, date_stamp, **kwargs)
-            markdown_text = md_gen.to_full_markdown()
+            glob_pattern = match.group(1).strip()  # Extract the glob pattern
+            old_block = match.group(0)  # Original block
 
-            # Replace the block with the Markdown table
-            old_block = match.group(0)  # Original block (<!--file ...--> ... <!--file end-->)
-            new_block = f"<!--file {file_name}-->\n{markdown_text}\n<!--file end-->"
+            # Get all matching files using pathlib
+            matching_files = list(pathlib.Path().glob(glob_pattern))
+
+            # Generate markdown for each matching file
+            if matching_files:
+                markdown_parts = []
+                for file_path in matching_files:
+                    file_name = str(file_path)
+                    md_gen = markdown_factory(file_name, **kwargs)
+                    markdown_text = md_gen.to_full_markdown()
+                    markdown_parts.append(markdown_text)
+
+                # Join all markdown parts with a separator
+                all_markdown = "\n\n".join(markdown_parts)
+                new_block = f"<!--file {glob_pattern}-->\n{all_markdown}\n<!--file end-->"
+            else:
+                # No files found - add a comment indicating that
+                new_block = f"<!--file {glob_pattern}-->\n<!-- No files found matching pattern '{glob_pattern}' -->\n<!--file end-->"
+
             new_content = new_content.replace(old_block, new_block)
 
         return new_content
@@ -491,13 +445,10 @@ def update_markdown_from_string(content: str,
         typer.echo(f"An error occurred while updating the Markdown: {e}", err=True)
         return content  # Return original content in the case of error
 
-
 def update_markdown_file(
         md_file: str,
         bold: str = '',
-        date_stamp: bool = False,
         auto_break: bool = False,
-        now_: dt.datetime | None = None,
         out_file: str | None = None,
 ) -> str:
     """
@@ -508,10 +459,7 @@ def update_markdown_file(
     Args:
         md_file (str): Path to the Markdown file to be read.
         bold (str, optional): String to be added in bold text format. Defaults to an empty string.
-        date_stamp (bool): If True, inserts the current date or a provided date into the file.
         auto_break (bool): If True, applies automatic line breaking within the content.
-        now_ (datetime.datetime, optional): Optional datetime object used for inserting
-            a date stamp. If not provided, the current date and time will be used.
         out_file (str, optional): If provided, writes the updated Markdown content to this file.
             Otherwise, updates the original file.
 
@@ -528,9 +476,7 @@ def update_markdown_file(
             content = file.read()
 
         # Call the string-based update function
-        updated_content = update_markdown_from_string(
-            content, bold, date_stamp, auto_break, now_
-        )
+        updated_content = update_markdown_from_string(content, bold, auto_break )
 
         # Write updated content to the specified output file
         out_file = out_file or md_file
@@ -548,9 +494,7 @@ def update_markdown_file(
 def handle_update_markdown_file(
         md_file: str,
         bold: str = '',
-        date_stamp: bool = False,
         auto_break: bool = False,
-        now_: dt.datetime | None = None,
         out_file: str | None = None,
 )->str:
     """
@@ -559,10 +503,7 @@ def handle_update_markdown_file(
     Args:
         md_file (str): Path to the Markdown file to be read.
         bold (str, optional): String to be added in bold text format. Defaults to an empty string.
-        date_stamp (bool): If True, inserts the current date or a provided date into the file.
         auto_break (bool): If True, applies automatic line breaking within the content.
-        now_ (datetime.datetime, optional): Optional datetime object used for inserting
-            a date stamp. If not provided, the current date and time will be used.
         out_file (str, optional): File to save the updated content. Defaults to overwriting
             the input file.
 
@@ -570,8 +511,10 @@ def handle_update_markdown_file(
         None
     """
     try:
-        updated_content = update_markdown_file(
-            md_file, bold, date_stamp, auto_break, now_, out_file
+        updated_content = update_markdown_file(md_file,
+                                               bold,
+                                               auto_break,
+                                               out_file
         )
 
         typer.echo(f"File '{md_file}' updated successfully.", err=True)
@@ -586,15 +529,12 @@ app = typer.Typer(add_completion=False)
 
 @app.command()
 def convert(
-    file_name: str = typer.Argument("../README.md", help="The file to convert to Markdown"),
+    file_name: str = typer.Argument("README.md", help="The file to convert to Markdown"),
     output: Optional[str] = typer.Option(
         None, "--output", "-o", help="Output file (if not specified, prints to stdout)"
     ),
     bold_values: Optional[str] = typer.Option(
         None, "--bold", "-b", help="Comma-separated values to make bold (for CSV files)"
-    ),
-    date_stamp: Optional[bool] = typer.Option(
-        True, "--date-stamp/--no-date-stamp", "-d", help="Add datetime stamp to file output"
     ),
     auto_break: Optional[bool] = typer.Option(
         True, "--auto-break/--no-auto-break", help="Disable automatic line breaks in CSV headers"
@@ -605,7 +545,6 @@ def convert(
 
         markdown_text = handle_update_markdown_file(file_name,
                                                     bold=bold_values,
-                                                    date_stamp=date_stamp,
                                                     auto_break=auto_break)
 
         if output:

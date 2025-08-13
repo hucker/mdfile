@@ -2,18 +2,8 @@
 # MarkyMark (mnm)
 A versatile utility for converting various file types to Markdown format, making it easy to include 
 code, CSV data, JSON, and other files in your Markdown documents. There are `<!-- file foo.txt-->` and
-`<!--file end-->` tags that mark the start and end for each file.
-
-The mechanism is that these file directives will be updated with file contents by replacing the old.
-text. CSV files are rendered as tables while .py files are render as text blocks using the ```python 
-text block.  Whatever magic your markdown tool has for various document types will be rendered.
-
-`MarkyMark` is a play on words in spanish mark-y-mark which is meant to imply MarkDown inside
-MarkDown...and of course that gets shortened to `mnm` because, of course it does.
-
-
-```python
-<!--file factorial.py-->
+`<!--file end-->
+<!-- No files found matching pattern 'end' -->
 <!--file end-->
 ```
 
@@ -21,13 +11,7 @@ Would be written back into the file as a python MarkDown block.
 
 ```text
 <!--file factorial.py-->
-&#96;&#96;&#96; python
-def factorial(n:int):
-    if n == 0:
-        return 1
-    else:
-        return n * factorial(n - 1)
-&#96;&#96;&#96;
+<!-- No files found matching pattern 'factorial.py' -->
 <!--file end-->
 ```
 
@@ -94,6 +78,7 @@ Total,490000,528000,543000,645000,2206000
 Here's a breakdown of our quarterly sales by region:
 
 <!--file sales_data.csv-->
+<!-- No files found matching pattern 'sales_data.csv' -->
 <!--file end-->
 
 As we can see from the data, Q4 had the strongest performance across all regions.
@@ -134,7 +119,7 @@ As we can see from the data, Q4 had the strongest performance across all regions
 The default configuration is:
 
 <!--file path/to/config.json-->
-This will be replaced with formatted JSON
+<!-- No files found matching pattern 'path/to/config.json' -->
 <!--file end-->
 ```
 ## File Type Support
