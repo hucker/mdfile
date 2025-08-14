@@ -35,14 +35,16 @@ import csv
 import json
 import pathlib
 import re
-from rich.console import Console
-from rich.markdown import Markdown
-
+import shlex
+import subprocess
 from abc import ABC, abstractmethod
+from io import StringIO
 from typing import Optional
 
 import typer
-
+from rich.console import Console
+from rich.panel import Panel
+from rich.markdown import Markdown
 
 class ToMarkdown(ABC):
     """Abstract base class for converting files to Markdown format.
@@ -66,9 +68,7 @@ class ToMarkdown(ABC):
         # Store remaining kwargs if needed
         self.kwargs = kwargs
 
-
-
-    def load_file(self, file_name: str | None = None)->str:
+    def load_file(self, file_name: str | None = None) -> str:
         """Load the content of a file into the text attribute.
 
         Reads the file specified by file_name (or the instance's file_name if not provided)
@@ -93,9 +93,9 @@ class ToMarkdown(ABC):
         """
         file_name = file_name or self.file_name
         try:
-            with open(file_name, 'r',encoding='utf8') as file:
+            with open(file_name, 'r', encoding='utf8') as file:
                 self.text = file.read()
-        except (FileNotFoundError,FileExistsError,IOError,PermissionError) as e:
+        except (FileNotFoundError, FileExistsError, IOError, PermissionError) as e:
             self.error_str = str(e)
             self.text = ''
 
@@ -116,24 +116,26 @@ class ToMarkdown(ABC):
 
         md = self.to_markdown()
 
-
         return md
 
 
 class MarkdownToMarkdown(ToMarkdown):
     """Directly inserts the contents of a Markdown file into the output."""
+
     def to_markdown(self):
         return f"\n{self.text}\n"
 
 
 class TextToMarkdown(ToMarkdown):
     """Converts plain text files to Markdown code blocks."""
+
     def __init__(self, file_name: str, **kwargs):
         super().__init__(file_name, **kwargs)
 
     def to_markdown(self):
         """Returns the text content wrapped in a plain Markdown code block."""
         return f"```\n{self.text}\n```"
+
 
 class JsonToMarkdown(ToMarkdown):
     """Converts JSON files to formatted Markdown code blocks with syntax highlighting."""
@@ -142,6 +144,7 @@ class JsonToMarkdown(ToMarkdown):
         """Returns the JSON content as a formatted, indented block with json syntax."""
         formatted_json = json.dumps(json.loads(self.text), indent=4)
         return f"```json\n{formatted_json}\n```"
+
 
 class CsvToMarkdown(ToMarkdown):
     """Converts JSON files to formatted Markdown code blocks with syntax highlighting."""
@@ -154,10 +157,9 @@ class CsvToMarkdown(ToMarkdown):
         # Pass remaining kwargs to super
         super().__init__(file_name, **kwargs)
 
-
     def to_markdown(self):
         try:
-            with open(self.file_name, 'r',encoding='utf8') as csv_file:
+            with open(self.file_name, 'r', encoding='utf8') as csv_file:
                 reader = csv.reader(csv_file)
 
                 # Read all rows from the CSV
@@ -207,11 +209,12 @@ class CodeToMarkdown(ToMarkdown):
     """Converts code formatted Markdown based on the fil extension of the file."""
 
     def __init__(self, file_name: str, language: str, **kwargs):
-        super().__init__(file_name,  **kwargs)
+        super().__init__(file_name, **kwargs)
         self.language = language
 
     def to_markdown(self):
         return f"```{self.language}\n{self.text}\n```"
+
 
 def markdown_factory(filename: str, **kwargs):
     """
@@ -373,24 +376,160 @@ def markdown_factory(filename: str, **kwargs):
 
     # Check for special handlers first
     if ext in special_handlers:
-        return special_handlers[ext](filename,  **kwargs)
+        return special_handlers[ext](filename, **kwargs)
 
     # For code files with recognized extensions
     if ext in language_map:
-        return CodeToMarkdown(filename, language_map[ext],  **kwargs)
+        return CodeToMarkdown(filename, language_map[ext], **kwargs)
 
     # Default case for unrecognized file types
-    return TextToMarkdown(filename,  **kwargs)
+    return TextToMarkdown(filename, **kwargs)
 
-def update_markdown_from_string(content: str,
-                                bold: str,
-                                auto_break: bool) -> str:
+
+def update_file_inserts(content: str, bold: str, auto_break: bool) -> str:
     """
-    Parse a Markdown string and replace special placeholders with actual file contents.
+    Replace file insertion placeholders with file contents converted to markdown.
+
+    Args:
+        content (str): The Markdown content as a string.
+        bold (str): Comma-separated values to bold.
+        auto_break (bool): Whether to auto-wrap content.
+
+    Returns:
+        str: Updated content with file placeholders replaced.
+    """
+    # Regex to find <!--file ...--> blocks
+    file_pattern = r'<!--file\s+(.+?)-->(.*?)<!--file end-->'
+    file_matches = re.finditer(file_pattern, content, re.DOTALL)
+    file_matches = list(file_matches)
+
+    new_content = content
+
+    # Process file insertions
+    for match in file_matches:
+        # Extract options for processing
+        kwargs = {
+            'bold_vals': bold.split(",") if bold else [],
+            'auto_break': auto_break,
+        }
+
+        glob_pattern = match.group(1).strip()  # Extract the glob pattern
+        old_block = match.group(0)  # Original block
+
+        # Get all matching files using pathlib
+        matching_files = list(pathlib.Path().glob(glob_pattern))
+
+        # Generate markdown for each matching file
+        if matching_files:
+            markdown_parts = []
+            for file_path in matching_files:
+                file_name = str(file_path)
+                md_gen = markdown_factory(file_name, **kwargs)
+                markdown_text = md_gen.to_full_markdown()
+                markdown_parts.append(markdown_text)
+
+            # Join all markdown parts with a separator
+            all_markdown = "\n\n".join(markdown_parts)
+            new_block = f"<!--file {glob_pattern}-->\n{all_markdown}\n<!--file end-->"
+        else:
+            # No files found - add a comment indicating that
+            new_block = f"<!--file {glob_pattern}-->\n<!-- No files found matching pattern '{glob_pattern}' -->\n<!--file end-->"
+
+        new_content = new_content.replace(old_block, new_block,1)
+
+    return new_content
+
+
+def update_process_inserts(content: str, timeout_sec=30) -> str:
+    """
+    Replace process execution placeholders with command output using Rich for formatting.
+
+    Args:
+        content (str): The Markdown content as a string.
+        timeout_sec (int): Timeout in seconds for each process execution. Default is 30 seconds.
+
+    Returns:
+        str: Updated content with process placeholders replaced with command output.
+    """
+
+    # Process pattern handling
+    proc_pattern = r'<!--process\s+(.+?)-->(.*?)<!--process end-->'
+    proc_matches = re.finditer(proc_pattern, content, re.DOTALL)
+    proc_matches = list(proc_matches)
+
+    new_content = content
+
+    # Process command executions
+    for match in proc_matches:
+        command = match.group(1).strip()  # Extract the command
+        old_block = match.group(0)  # Original block
+
+        # Create a string buffer to capture Rich output
+        string_io = StringIO()
+        console = Console(file=string_io, width=100, highlight=False)
+
+        try:
+            # Execute the command and capture output
+            args = shlex.split(command)
+            result = subprocess.run(
+                args,
+                capture_output=True,
+                shell=False,
+                text=True,
+                check=True,
+                timeout=timeout_sec
+            )
+
+            # Format the output using Rich
+            console.print(result.stdout.strip())
+            output = string_io.getvalue()
+
+            # Create new block with command output
+            new_block = f"<!--process {command}-->\n```text\n{output}\n```\n<!--process end-->"
+
+        except subprocess.CalledProcessError as e:
+            # Format error message using Rich
+            console.print(Panel.fit(
+                f"[bold red]Command failed with exit code {e.returncode}[/]\n\n"
+                f"[yellow]Command:[/] {command}\n\n"
+                f"[red]Error output:[/]\n{e.stderr.strip()}",
+                title="Error Executing Command"
+            ))
+            output = string_io.getvalue()
+            new_block = f"<!--process {command}-->\n{output}\n<!--process end-->"
+
+        except subprocess.TimeoutExpired:
+            console.print(Panel.fit(
+                f"Command execution timed out after {timeout_sec} seconds",
+                title="Timeout Error",
+                style="bold red"
+            ))
+            output = string_io.getvalue()
+            new_block = f"<!--process {command}-->\n{output}\n<!--process end-->"
+
+        except Exception as e:
+            console.print(Panel.fit(
+                f"{str(e)}",
+                title="Unexpected Error",
+                style="bold red"
+            ))
+            output = string_io.getvalue()
+            new_block = f"<!--process {command}-->\n{output}\n<!--process end-->"
+
+        new_content = new_content.replace(old_block, new_block,1)
+
+    return new_content
+
+
+def update_markdown_from_string(content: str, bold: str, auto_break: bool) -> str:
+    """
+    Parse a Markdown string and replace special placeholders with actual file contents
+    or process output.
 
     Supported placeholders:
         1. <!--file <glob_pattern>--> : Replaces with the Markdown tables based on file extension
            for all files matching the glob pattern
+        2. <!--process <command>--> : Executes the command and inserts its stdout output
 
     Args:
         content (str): The Markdown content as a string.
@@ -400,53 +539,19 @@ def update_markdown_from_string(content: str,
     Returns:
         str: The updated Markdown content with placeholders replaced.
     """
-    # Allow now to be passed in for testing.
-
     try:
-        # Regex to find <!--file ...--> blocks
-        file_pattern = r'<!--file\s+(.+?)-->(.*?)<!--file end-->'
-        file_matches = re.finditer(file_pattern, content, re.DOTALL)
-        file_matches = list(file_matches)
+        # Apply file insertions
+        content = update_file_inserts(content, bold, auto_break)
 
-        new_content = content
+        # Apply process insertions
+        content = update_process_inserts(content)
 
-        # Process file insertions
-        for match in file_matches:
-            # Extract options for processing
-            kwargs = {
-                'bold_vals': bold.split(",") if bold else [],
-                'auto_break': auto_break,
-            }
-
-            glob_pattern = match.group(1).strip()  # Extract the glob pattern
-            old_block = match.group(0)  # Original block
-
-            # Get all matching files using pathlib
-            matching_files = list(pathlib.Path().glob(glob_pattern))
-
-            # Generate markdown for each matching file
-            if matching_files:
-                markdown_parts = []
-                for file_path in matching_files:
-                    file_name = str(file_path)
-                    md_gen = markdown_factory(file_name, **kwargs)
-                    markdown_text = md_gen.to_full_markdown()
-                    markdown_parts.append(markdown_text)
-
-                # Join all markdown parts with a separator
-                all_markdown = "\n\n".join(markdown_parts)
-                new_block = f"<!--file {glob_pattern}-->\n{all_markdown}\n<!--file end-->"
-            else:
-                # No files found - add a comment indicating that
-                new_block = f"<!--file {glob_pattern}-->\n<!-- No files found matching pattern '{glob_pattern}' -->\n<!--file end-->"
-
-            new_content = new_content.replace(old_block, new_block)
-
-        return new_content
+        return content
 
     except Exception as e:
         typer.echo(f"An error occurred while updating the Markdown: {e}", err=True)
         return content  # Return original content in the case of error
+
 
 def update_markdown_file(
         md_file: str,
@@ -475,15 +580,15 @@ def update_markdown_file(
     """
     try:
         # Read file content
-        with open(md_file, 'r',encoding='utf8') as file:
+        with open(md_file, 'r', encoding='utf8') as file:
             content = file.read()
 
         # Call the string-based update function
-        updated_content = update_markdown_from_string(content, bold, auto_break )
+        updated_content = update_markdown_from_string(content, bold, auto_break)
 
         # Write updated content to the specified output file
         out_file = out_file or md_file
-        with open(out_file, 'w',encoding='utf8') as file_out:
+        with open(out_file, 'w', encoding='utf8') as file_out:
             file_out.write(updated_content)
 
         return updated_content
@@ -494,12 +599,13 @@ def update_markdown_file(
     except Exception as e:
         raise Exception(f"An unexpected error occurred: {e}") from e
 
+
 def handle_update_markdown_file(
         md_file: str,
         bold: str = '',
         auto_break: bool = False,
         out_file: str | None = None,
-)->str:
+) -> str:
     """
     Wrapper for `update_markdown_file` that integrates with Typer for CLI interaction.
 
@@ -518,7 +624,7 @@ def handle_update_markdown_file(
                                                bold,
                                                auto_break,
                                                out_file
-        )
+                                               )
 
         typer.echo(f"File '{md_file}' updated successfully.", err=True)
     except FileNotFoundError as e:
@@ -528,23 +634,25 @@ def handle_update_markdown_file(
 
     return updated_content
 
+
 app = typer.Typer(add_completion=False)
+
 
 @app.command()
 def convert(
-    file_name: str = typer.Argument("README.md", help="The file to convert to Markdown"),
-    output: Optional[str] = typer.Option(
-        None, "--output", "-o", help="Output file (if not specified, prints to stdout)"
-    ),
-    bold_values: Optional[str] = typer.Option(
-        None, "--bold", "-b", help="Comma-separated values to make bold (for CSV files)"
-    ),
-    auto_break: Optional[bool] = typer.Option(
-        True, "--auto-break/--no-auto-break", help="Disable automatic line breaks in CSV headers"
-    ),
-    plain: bool = typer.Option(
-        False, "--plain", help="Output plain markdown without rich formatting"
-    ),
+        file_name: str = typer.Argument("README.md", help="The file to convert to Markdown"),
+        output: Optional[str] = typer.Option(
+            None, "--output", "-o", help="Output file (if not specified, prints to stdout)"
+        ),
+        bold_values: Optional[str] = typer.Option(
+            None, "--bold", "-b", help="Comma-separated values to make bold (for CSV files)"
+        ),
+        auto_break: Optional[bool] = typer.Option(
+            True, "--auto-break/--no-auto-break", help="Disable automatic line breaks in CSV headers"
+        ),
+        plain: bool = typer.Option(
+            False, "--plain", help="Output plain markdown without rich formatting"
+        ),
 
 ):
     """Convert a file to Markdown based on its extension."""
@@ -555,9 +663,9 @@ def convert(
                                                     auto_break=auto_break)
 
         if output:
-            with open(output, "w",encoding='utf8') as file:
+            with open(output, "w", encoding='utf8') as file:
                 file.write(markdown_text)
-            typer.echo(f"Markdown written to {output}",err=True)
+            typer.echo(f"Markdown written to {output}", err=True)
         else:
             if markdown_text:
                 if not plain:
@@ -570,12 +678,11 @@ def convert(
                     typer.echo(markdown_text)
 
             else:
-                typer.echo("An Error Occurred",err=True)
+                typer.echo("An Error Occurred", err=True)
 
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
-
 
 
 if __name__ == "__main__":
