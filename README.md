@@ -173,8 +173,6 @@ uv run mnm.py ../README_template.md --output ../README.md
 
 
 
-
-
 ### Convert a CSV file with bold totals
 ``` bash
 python -m mnm sales_data.csv --bold "Total,Sum" -o sales_report.md

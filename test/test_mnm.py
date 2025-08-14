@@ -489,3 +489,22 @@ def test_bad_glob_pattern_error_message():
 
     # Make sure no Python code block was included (since no files matched)
     assert "```python" not in result or "```python" in markdown_content, "Python code block should not be added for non-matching glob"
+
+def test_file_not_found_error():
+    """
+    Test that attempting to update a non-existent markdown file
+    correctly raises a FileNotFoundError.
+    """
+    # Define a filename that doesn't exist
+    non_existent_file = "bad_file.md"
+
+    # Create a Path object to verify the file doesn't exist
+    file_path = pathlib.Path(non_existent_file)
+    assert not file_path.exists(), f"Test file '{non_existent_file}' should not exist"
+
+    # Check that the appropriate exception is raised with the correct message
+    with pytest.raises(FileNotFoundError) as excinfo:
+        update_markdown_file(non_existent_file)
+
+    # Verify the error message contains the filename
+    assert non_existent_file in str(excinfo.value), f"Error message should mention '{non_existent_file}'"

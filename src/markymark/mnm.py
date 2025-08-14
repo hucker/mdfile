@@ -487,30 +487,11 @@ def update_process_inserts(content: str, timeout_sec=30) -> str:
             # Create new block with command output
             new_block = f"<!--process {command}-->\n```text\n{output}\n```\n<!--process end-->"
 
-        except subprocess.CalledProcessError as e:
-            # Format error message using Rich
-            console.print(Panel.fit(
-                f"[bold red]Command failed with exit code {e.returncode}[/]\n\n"
-                f"[yellow]Command:[/] {command}\n\n"
-                f"[red]Error output:[/]\n{e.stderr.strip()}",
-                title="Error Executing Command"
-            ))
-            output = string_io.getvalue()
-            new_block = f"<!--process {command}-->\n{output}\n<!--process end-->"
 
         except subprocess.TimeoutExpired:
             console.print(Panel.fit(
                 f"Command execution timed out after {timeout_sec} seconds",
                 title="Timeout Error",
-                style="bold red"
-            ))
-            output = string_io.getvalue()
-            new_block = f"<!--process {command}-->\n{output}\n<!--process end-->"
-
-        except Exception as e:
-            console.print(Panel.fit(
-                f"{str(e)}",
-                title="Unexpected Error",
                 style="bold red"
             ))
             output = string_io.getvalue()
@@ -596,8 +577,6 @@ def update_markdown_file(
     except FileNotFoundError as fnf_error:
         raise FileNotFoundError(f"File '{md_file}' not found.") from fnf_error
 
-    except Exception as e:
-        raise Exception(f"An unexpected error occurred: {e}") from e
 
 
 def handle_update_markdown_file(
@@ -629,8 +608,6 @@ def handle_update_markdown_file(
         typer.echo(f"File '{md_file}' updated successfully.", err=True)
     except FileNotFoundError as e:
         typer.echo(f"Error: {e}", err=True)
-    except Exception as e:
-        typer.echo(f"An unexpected error occurred: {e}", err=True)
 
     return updated_content
 
