@@ -5,7 +5,7 @@ import tempfile
 import pytest
 from typer.testing import CliRunner
 
-from markymark.mnm import CsvToMarkdown, ToMarkdown,update_process_inserts
+from markymark.mnm import CsvToMarkdown, ToMarkdown,update_process_inserts,update_file_inserts
 from markymark.mnm import app, update_markdown_from_string,update_markdown_file
 
 runner = CliRunner()
@@ -432,3 +432,60 @@ def test_csv_to_markdown_empty_file():
         # Clean up the temporary file
         if temp_csv_path.exists():
             temp_csv_path.unlink()
+
+
+def test_glob_pattern_in_file_inserts():
+    """
+    Test that glob patterns in file insertion tags work correctly,
+    matching multiple files according to the pattern.
+    """
+
+    input_md = pathlib.Path("input/example_python_glob.md")
+
+    # Create a test markdown content with a glob pattern
+    markdown_content = input_md.read_text()
+
+    # Process the file insertions
+    result = update_markdown_from_string(markdown_content, "", False)
+
+    # Verify the results
+    assert "```python" in result, "Python code block not found in result"
+
+    # Check for content from python.py
+    assert "def factorial(n:int):" in result, "Content from python.py not found in result"
+    assert "return n * factorial(n - 1)" in result, "Content from python.py not found in result"
+
+    # Check for content from python2.py
+    assert "def fib(n:int):" in result, "Content from python2.py not found in result"
+    assert "Calculate the nth Fibonacci number" in result, "Content from python2.py not found in result"
+    assert "return fib(n-1) + fib(n-2)" in result, "Content from python2.py not found in result"
+
+    # Verify that the original tags are preserved
+    assert "<!--file input/pyth*.py-->" in result, "Original file tag not preserved"
+    assert "<!--file end-->" in result, "End file tag not preserved"
+
+
+def test_bad_glob_pattern_error_message():
+    """
+    Test that when a glob pattern doesn't match any files, an appropriate
+    error message is included in the output.
+    """
+    # Create a Path object for the input file
+    input_md = pathlib.Path("input/example_python_bad_glob.md")
+
+    # Read the markdown content from the file
+    markdown_content = input_md.read_text()
+
+    # Process the file insertions
+    result = update_markdown_from_string(markdown_content, "", False)
+
+    # Verify that the error message is included in the result
+    expected_error = f"<!-- No files found matching pattern 'input/XFAF*.py' -->"
+    assert expected_error in result, "Error message for no matching files not found in result"
+
+    # Verify that the original tags are preserved
+    assert f"<!--file input/XFAF*.py-->" in result, "Original file tag not preserved"
+    assert "<!--file end-->" in result, "End file tag not preserved"
+
+    # Make sure no Python code block was included (since no files matched)
+    assert "```python" not in result or "```python" in markdown_content, "Python code block should not be added for non-matching glob"
