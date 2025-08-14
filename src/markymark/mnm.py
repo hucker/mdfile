@@ -453,7 +453,7 @@ def update_process_inserts(content: str, timeout_sec=30) -> str:
     """
 
     # Process pattern handling
-    proc_pattern = r'<!--process\s+(.+?)-->(.*?)<!--process end-->'
+    proc_pattern = r'^<!--process\s+(.+?)-->(.*?)<!--process end-->'
     proc_matches = re.finditer(proc_pattern, content, re.DOTALL)
     proc_matches = list(proc_matches)
 

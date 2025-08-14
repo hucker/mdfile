@@ -1,23 +1,61 @@
 
 # MarkyMark (mnm)
-A versatile utility for converting various file types to Markdown format, making it easy to include 
-code, CSV data, JSON, and other files in your Markdown documents. There are `<!-- file foo.txt-->` and
-`<!--file end-->
-<!-- No files found matching pattern 'end' -->
-<!--file end-->
+A  utility for converting various file types to Markdown format, making it easy to include 
+code, CSV data, JSON, and other files in your Markdown documents. There are 
+
+Simply create a block like this in your `README.md`.  Technically this is a markdown comment
+that is being hijacked for text insertion purposes.
+
+`<!--file factorial.py-->`
+`<!--file end-->`
+
+And the README.md will be updated when you run the script. 
+
+
+`<!--file factorial.py-->`
+```python
+def factorial(n:int):
+    if n == 0:
+        return 1
+    else:
+        return n * factorial(n - 1)
 ```
+`<!--file end-->`
 
-Would be written back into the file as a python MarkDown block.
+If you make a change to the python file, and you rerun the script the readme would be updated with the new 
+text from the file.
 
+`<!--file factorial.py-->`
+```python
+def factorial(n:int):
+    """Return factorial of n"""
+    if n == 0:
+        return 1
+    else:
+        return n * factorial(n - 1)
+```
+`<!--file end-->`
+
+NOTE: It is hard to write MarkDown about MarkDown.
+
+Alternatively you can run scripts using the process command
+
+`<!-- process cat factorial.py-->` <br>
+`<!--process end-->`
+
+
+To make markdown with the output from the `cat factorial.py` shell command.  This can be finicy
+
+`<!--process cat factorial.py-->`
 ```text
-<!--file factorial.py-->
-<!-- No files found matching pattern 'factorial.py' -->
-<!--file end-->
+def factorial(n:int):
+    """Return factorial of n"""
+    if n == 0:
+        return 1
+    else:
+        return n * factorial(n - 1)
 ```
-
-
-It is worth noting that if there is any text between these start/end tags, and you rerun the tool the file
-will be updated...however these blocks may not be recursive.
+`<!--process end-->`
 
 ## Overview
 MarkdownMaker (mnm) converts different file types to properly formatted markdown, supporting:
@@ -30,10 +68,11 @@ MarkdownMaker (mnm) converts different file types to properly formatted markdown
 **USEFUL NOTE: Paths are relative to the file that you are processing, so if files are in other folders please
 reference them to the markdown file that you are reading from.**
 
+
 ## Installation
 ``` bash
 # Clone the repository
-git clone https://github.com/yourusername/markymark.git
+git clone https://github.com/hucker/markymark.git
 cd markymark
 
 # Install the package
