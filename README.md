@@ -1,50 +1,56 @@
 
 # MarkyMark (mnm)
-A  utility for converting various file types to Markdown format, making it easy to include 
-code, CSV data, JSON, and other files in your Markdown documents. There are 
+A utility that dynamically imports content from external files or commands into your Markdown documents. 
+Perfect for keeping code samples, data, and command outputs in sync with your documentation.
 
-Simply create a block like this in your `README.md`.  Technically this is a markdown comment
-that is being hijacked for text insertion purposes.
+## Key Features
 
-`<!--file factorial.py-->`
-`<!--file end-->`
+- **Live Synchronization**: Automatically updates your markdown when source files change
+- **Multiple Import Methods**: Import files directly or capture command outputs
+- **Smart Formatting**: Automatically applies correct syntax highlighting based on file extension
+- **Table Formatting**: Converts CSV data into well-formatted Markdown tables
+- **JSON Prettification**: Properly formats and highlights JSON data
 
-And the README.md will be updated when you run the script. 
 
+## Quick Example
 
-`<!--file factorial.py-->`
+**Source file (example.py):**
 ```python
-def factorial(n:int):
-    if n == 0:
-        return 1
-    else:
-        return n * factorial(n - 1)
+def hello_world():
+    return "Hello, world!"
 ```
-`<!--file end-->`
 
-If you make a change to the python file, and you rerun the script the readme would be updated with the new 
-text from the file.
+**In your README.md:**
+```markdown
+# My Project
 
-`<!--file factorial.py-->`
+Check out this function:
+
+<!--file example.py-->
+<!--file end-->
+```
+
+**After running `mnm`:**
+````markdown
+# My Project
+
+Check out this function:
+
+<!--file example.py-->
 ```python
-def factorial(n:int):
-    """Return factorial of n"""
-    if n == 0:
-        return 1
-    else:
-        return n * factorial(n - 1)
+def hello_world():
+    return "Hello, world!"
 ```
-`<!--file end-->`
-
-NOTE: It is hard to write MarkDown about MarkDown.
-
-Alternatively you can run scripts using the process command
-
-`<!-- process cat factorial.py-->` <br>
-`<!--process end-->`
+<!--file end-->
+````
 
 
-To make markdown with the output from the `cat factorial.py` shell command.  This can be finicy
+
+To make markdown with the output from the `cat factorial.py` shell command.  This can be difficult
+to get just right depending on the tool you are trying to use to pipe data from.  In the example
+below the `cat` command is used to copy the data into the markdown file, but any command can be used.
+Keep in mind that some tools act differently when they are generating data for a tty compared to 
+when they are piping data into a file.
 
 `<!--process cat factorial.py-->`
 ```text
@@ -58,12 +64,16 @@ def factorial(n:int):
 `<!--process end-->`
 
 ## Overview
-MarkdownMaker (mnm) converts different file types to properly formatted markdown, supporting:
+MarkdownMaker (mnm) 'converts' different file types to properly formatted markdown, supporting:
 - Code files (.py, .java, .js, and many more)
 - CSV files (with table formatting)
 - JSON files (with syntax highlighting)
-- Markdown files (pass-through with optional timestamp)
+- Markdown files 
 - Text files (plain text conversion)
+
+**DISCLAIMER: convert is doing a bit of heavy lifting, in most cases the file extension is used to
+generate a text-block that the browser is used to render.  However, in the case of JSON files the
+files are pretty printed, and CSVs are loaded into Markdown Tables.**
 
 **USEFUL NOTE: Paths are relative to the file that you are processing, so if files are in other folders please
 reference them to the markdown file that you are reading from.**
@@ -85,14 +95,11 @@ The basic command for converting files is:
 ``` bash
 python -m mnm [FILE_PATH] [OPTIONS]
 ```
-If you don't specify a file, it defaults to `../README.md`.
+If you don't specify a file, it defaults to `README.md`.
 ### Command Line Options
 ``` bash
 # Convert a file and print to stdout
-python -m mnm README.py
-
-# Convert without adding a timestamp
-python -m mnm README.md --no-date-stamp
+python -m mnm README.md
 
 # Disable automatic line breaks in CSV headers
 python -m mnm README.md --no-auto-break
@@ -136,12 +143,12 @@ python -m mnm convert report.md --bold "Total" -o final_report.md
 
 Here's a breakdown of our quarterly sales by region:
 
-| Region | Q1 Sales | Q2 Sales | Q3 Sales | Q4 Sales | Total |
-|--------|----------|----------|----------|----------|-------|
-| North | 125000 | 133000 | 158000 | 175000 | 591000 |
-| South | 105000 | 130000 | 115000 | 163000 | 513000 |
-| East | 143000 | 123000 | 132000 | 145000 | 543000 |
-| West | 117000 | 142000 | 138000 | 162000 | 559000 |
+| Region    | Q1 Sales   | Q2 Sales   | Q3 Sales   | Q4 Sales   | Total       |
+|-----------|------------|------------|------------|------------|-------------|
+| North     | 125000     | 133000     | 158000     | 175000     | 591000      |
+| South     | 105000     | 130000     | 115000     | 163000     | 513000      |
+| East      | 143000     | 123000     | 132000     | 145000     | 543000      |
+| West      | 117000     | 142000     | 138000     | 162000     | 559000      |
 | **Total** | **490000** | **528000** | **543000** | **645000** | **2206000** |
 
 
@@ -150,6 +157,11 @@ As we can see from the data, Q4 had the strongest performance across all regions
 ---
 
 ### Including JSON Configuration
+
+```json
+{"name":"John Doe","age":30,"isStudent":false,"grades":[78,85,90],"address":{"street":"123 Main St","city":"New York","zip":"10001"}}
+```
+
 ``` markdown
 ## Configuration
 
@@ -158,6 +170,37 @@ The default configuration is:
 <!--file path/to/config.json-->
 <!--file end-->
 ```
+
+The updated `README.md` file is shown below with the JSON pretty printed.
+
+```` markdown
+## Configuration
+
+The default configuration is:
+
+<!--file path/to/config.json-->
+```json
+{
+  "name": "John Doe",
+  "age": 30,
+  "isStudent": false,
+  "grades": [
+    78,
+    85,
+    90
+  ],
+  "address": {
+    "street": "123 Main St",
+    "city": "New York",
+    "zip": "10001"
+  }
+}
+<!--file end-->
+```
+````
+
+
+
 ## File Type Support
 MarkdownMaker supports numerous file extensions allowing MarkDown to correctly syntax highlight:
 - Python: `.py`, `.pyw`, `.pyx`, `.pyi`
@@ -170,6 +213,8 @@ MarkdownMaker supports numerous file extensions allowing MarkDown to correctly s
 - Configuration: `.ini`, `.cfg`, `.conf`
 - Shell: `.sh`, `.bash`, `.zsh`
 - And many more!
+
+These file extensions map use the standard triple back tick text blocks available in Markdown.
 
 ## Options for CSV Files
 When converting CSV files, you have additional options:
@@ -202,23 +247,37 @@ When converting CSV files, you have additional options:
 It wouldn't be an example unless we showed you that you can run `mnm` with `uv` without knowing anything beyond
 installing `uv` on your machine by taking advantage of support for [PEP 723](https://peps.python.org/pep-0723/). 
 
-ASSUMING that you have `uv` installed on your machine and that you have `mnm.py installed on your machine
+ASSUMING that you have `uv` installed on your machine and that you have `mnm.py` installed on your machine
 
 This is the recommended way of using `mnm`.
 
 ```bash
 uv run mnm.py ../README_template.md --output ../README.md
-````
+```
 
 
 
 ### Convert a CSV file with bold totals
+
 ``` bash
 python -m mnm sales_data.csv --bold "Total,Sum" -o sales_report.md
 ```
 ### Update embedded references in a markdown file
+
 ``` bash
 python -m mnm documentation.md -o updated_docs.md
 ```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+
 ## License
 [MIT License](LICENSE)

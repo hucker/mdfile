@@ -220,7 +220,7 @@ def markdown_factory(filename: str, **kwargs):
     """
     Creates the appropriate markdown converter based on file extension.
 
-    This factory function examines the provided filename's extension and instantiates
+    This factory function examines the provided file's extension and instantiates
     the corresponding converter class. All keyword arguments are passed through to
     the converter's constructor, allowing each converter to use parameters relevant
     to its functionality.
@@ -288,12 +288,10 @@ def markdown_factory(filename: str, **kwargs):
         '.php': 'php',
         '.phtml': 'php',
         '.php5': 'php',
-        '.phps': 'php',
 
         # Ruby
         '.rb': 'ruby',
         '.rake': 'ruby',
-        '.gemspec': 'ruby',
 
         # Go
         '.go': 'go',
@@ -343,6 +341,9 @@ def markdown_factory(filename: str, **kwargs):
         # JSON
         '.json': 'json',
         '.jsonc': 'json',
+
+        # VB.NET
+        '.vb': 'vbnet',
 
         # Other common languages
         '.r': 'r',
@@ -612,7 +613,8 @@ def handle_update_markdown_file(
     return updated_content
 
 
-app = typer.Typer(add_completion=False)
+app = typer.Typer(add_completion=False,rich_markup_mode=None)
+
 
 
 @app.command()

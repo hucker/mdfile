@@ -64,6 +64,20 @@ def test_update_file_from_another_file():
         input_file_path.unlink(missing_ok=True)
 
 
+def file_setup(
+                md_file:str,
+                output_file:str,
+                input_folder="input",
+                output_folder="output",
+):
+    input_md_file = pathlib.Path(input_folder) / md_file
+    output_md_file = pathlib.Path(output_folder) / output_file
+
+    content = input_md_file.read_text()
+    expected = output_md_file.read_text()
+
+    return content, expected
+
 def test_update_file_with_output_flag():
     """Tests the convert CLI functionality with the --output flag.
 
@@ -125,21 +139,20 @@ def test_update_file_with_output_flag():
         output_file_path.unlink(missing_ok=True)
 
 
-def test_update_markdown_csv_file(tmp_path):
+
+
+
+def test_update_markdown_csv_file():
     """
     Test the update_markdown_file function using actual Markdown and CSV files.
     """
-
-    # Base directories for input and expected files
-    input_dir = pathlib.Path("input")
-    expected_dir = pathlib.Path("expected")
-
-    # Input and expected file paths
-    input_md_file = input_dir / "example.md"
-    input_csv_file = input_dir / "test.csv"
-    expected_output_file = pathlib.Path("output/example_output.md")
-
-    content = input_md_file.read_text()
+    # Use file_setup helper to get content and expected values
+    content, expected_output = file_setup(
+        md_file="example.md",
+        output_file="example_output.md",
+        input_folder="input",
+        output_folder="output"
+    )
 
     # Call the function, processing Markdown with placeholders
     result = update_markdown_from_string(
@@ -148,27 +161,23 @@ def test_update_markdown_csv_file(tmp_path):
         auto_break=False
     )
 
-    # Read the expected Markdown
-    expected_output = expected_output_file.read_text()
-
     # Assert that the result matches the expected output
     assert expected_output == result, f"Output did not match:\n{result}"
 
-def test_update_markdown_csv_numbers_file(tmp_path):
+
+
+def test_update_markdown_csv_numbers_file():
     """
     Test the update_markdown_file function using actual Markdown and CSV files.
     """
 
-    # Base directories for input and expected files
-    input_dir = pathlib.Path("input")
-    expected_dir = pathlib.Path("expected")
-
-    # Input and expected file paths
-    input_md_file = input_dir / "example_numbers.md"
-    input_csv_file = input_dir / "test_numbers.csv"
-    expected_output_file = pathlib.Path("output/example_output_numbers.md")
-
-    content = input_md_file.read_text()
+    # Use file_setup helper to get content and expected values
+    content, expected_output = file_setup(
+        md_file="example_numbers.md",
+        output_file="example_output_numbers.md",
+        input_folder="input",
+        output_folder="output"
+    )
 
     # Call the function, processing Markdown with placeholders
     result = update_markdown_from_string(
@@ -177,59 +186,48 @@ def test_update_markdown_csv_numbers_file(tmp_path):
         auto_break=False
     )
 
-    # Read the expected Markdown
-    expected_output = expected_output_file.read_text()
-
     # Assert that the result matches the expected output
     assert expected_output == result, f"Output did not match:\n{result}"
 
 
-def test_update_markdown_csv_br_file(tmp_path):
+def test_update_markdown_csv_br_file():
     """
     Test the update_markdown_file function using actual Markdown and CSV files.
     """
 
-    # Base directories for input and expected files
-    input_dir = pathlib.Path("input")
-    expected_dir = pathlib.Path("expected")
-
-    # Input and expected file paths
-    input_md_file = input_dir / "example.md"
-    input_csv_file = input_dir / "test.csv"
-    expected_output_file = pathlib.Path("output/example_output_br.md")
-
-    content = input_md_file.read_text()
+    # Use file_setup helper to get content and expected values
+    content, expected_output = file_setup(
+        md_file="example.md",
+        output_file="example_output_br.md",
+        input_folder="input",
+        output_folder="output"
+    )
 
     # Call the function, processing Markdown with placeholders
     result = update_markdown_from_string(
         content=content,
         bold=False,
-        auto_break=True
+        auto_break=True  # Note the auto_break change
     )
-
-    # Read the expected Markdown
-    expected_output = expected_output_file.read_text()
 
     # Assert that the result matches the expected output
     assert expected_output == result, f"Output did not match:\n{result}"
 
 
 
-def test_update_markdown_python_file(tmp_path):
+
+def test_update_markdown_python_file():
     """
-    Test the update_markdown_file function using actual Markdown and CSV files.
+    Test the update_markdown_file function using actual Markdown and Python files.
     """
 
-    # Base directories for input and expected files
-    input_dir = pathlib.Path("input")
-    expected_dir = pathlib.Path("expected")
-
-    # Input and expected file paths
-    input_md_file = input_dir / "example_python.md"
-    input_py_file = input_dir / "python.py"
-    expected_output_file = pathlib.Path("output/example_python.md")
-
-    content = input_md_file.read_text()
+    # Use file_setup helper to get content and expected values
+    content, expected_output = file_setup(
+        md_file="example_python.md",
+        output_file="example_python.md",
+        input_folder="input",
+        output_folder="output"
+    )
 
     # Call the function, processing Markdown with placeholders
     result = update_markdown_from_string(
@@ -238,12 +236,9 @@ def test_update_markdown_python_file(tmp_path):
         auto_break=False,
     )
 
-    # Read the expected Markdown
-    expected_output = expected_output_file.read_text()
-
     # Assert that the result matches the expected output
     assert expected_output == result, f"Output did not match:\n{result}"
-    return
+
 
 
 @pytest.mark.parametrize("lang, code_ext", [
@@ -257,23 +252,18 @@ def test_update_markdown_python_file(tmp_path):
     ("python", "py"),
 
 ])
-def test_update_markdown_code_file(tmp_path, lang, code_ext):
+def test_update_markdown_code_file(lang, code_ext):
     """
     Test the update_markdown_file function using parameterized Markdown and code files
     for multiple languages.
     """
-
-    # Base directories for input and expected files
-    input_dir = pathlib.Path("input")
-    expected_dir = pathlib.Path("output")
-
-    # Input and expected file paths
-    input_md_file = input_dir / f"example_{lang}.md"
-    input_code_file = input_dir / f"{lang}.{code_ext}"
-    expected_output_file = expected_dir / f"example_{lang}.md"
-
-    # Read content from the Markdown file
-    content = input_md_file.read_text()
+    # Use file_setup helper to get content and expected values
+    content, expected_output = file_setup(
+        md_file=f"example_{lang}.md",
+        output_file=f"example_{lang}.md",
+        input_folder="input",
+        output_folder="output"
+    )
 
     # Call the function, processing Markdown with placeholders
     result = update_markdown_from_string(
@@ -282,11 +272,9 @@ def test_update_markdown_code_file(tmp_path, lang, code_ext):
         auto_break=False,
     )
 
-    # Read the expected Markdown
-    expected_output = expected_output_file.read_text()
-
     # Assert that the result matches the expected output
     assert expected_output == result, f"Output did not match for {lang}:\n{result}"
+
 
 
 def test_csv_to_markdown_file_not_found():
@@ -384,6 +372,7 @@ def test_file_not_found_error():
     # Verify that the error message contains the file name
     assert non_existent_file in str(excinfo.value), f"Error message should mention '{non_existent_file}'"
     assert "not found" in str(excinfo.value).lower(), "Error message should indicate file not found"
+
 
 def test_process_command_timeout():
     """
@@ -490,21 +479,4 @@ def test_bad_glob_pattern_error_message():
     # Make sure no Python code block was included (since no files matched)
     assert "```python" not in result or "```python" in markdown_content, "Python code block should not be added for non-matching glob"
 
-def test_file_not_found_error():
-    """
-    Test that attempting to update a non-existent markdown file
-    correctly raises a FileNotFoundError.
-    """
-    # Define a filename that doesn't exist
-    non_existent_file = "bad_file.md"
 
-    # Create a Path object to verify the file doesn't exist
-    file_path = pathlib.Path(non_existent_file)
-    assert not file_path.exists(), f"Test file '{non_existent_file}' should not exist"
-
-    # Check that the appropriate exception is raised with the correct message
-    with pytest.raises(FileNotFoundError) as excinfo:
-        update_markdown_file(non_existent_file)
-
-    # Verify the error message contains the filename
-    assert non_existent_file in str(excinfo.value), f"Error message should mention '{non_existent_file}'"
