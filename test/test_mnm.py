@@ -5,8 +5,8 @@ import tempfile
 import pytest
 from typer.testing import CliRunner
 
-from markymark.mnm import CsvToMarkdown, ToMarkdown,update_process_inserts,update_file_inserts
-from markymark.mnm import app, update_markdown_from_string,update_markdown_file
+from mdfile.mdfile import CsvToMarkdown, ToMarkdown,update_process_inserts,update_file_inserts
+from mdfile.mdfile import app, update_markdown_from_string,update_markdown_file
 
 runner = CliRunner()
 

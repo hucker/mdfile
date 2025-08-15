@@ -1,5 +1,5 @@
 
-# MarkyMark (mnm)
+# MDFile (mdf)
 A utility that dynamically imports content from external files or commands into your Markdown documents. 
 Perfect for keeping code samples, data, and command outputs in sync with your documentation.
 
