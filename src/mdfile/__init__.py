@@ -2,10 +2,13 @@
 """
 mdfile — Markdown File Manipulation Package
 """
+from importlib.metadata import version
+
+__version__ = version("your-package-name")
 
 from .mdfile import app  # Expose the Typer app for CLI entry point
 
-__version__ = "0.5.0"
+__version__ = version("mdfile")
 __author__ = "Chuck Bass"
 __email__ = "chuck@acrocad.net"
 
