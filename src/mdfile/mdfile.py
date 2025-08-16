@@ -29,7 +29,7 @@ NOTE: This module is SUPPOSED to be a single file so it is easy to use as a tool
 
 Usage example:
     # Via CLI
-    # python mnm.py report.md --bold "Important,Critical"
+    # python mdfile.py report.md --bold "Important,Critical"
 """
 import csv
 import json
@@ -613,7 +613,7 @@ def handle_update_markdown_file(
     return updated_content
 
 
-app = typer.Typer(add_completion=False,rich_markup_mode=None)
+app = typer.Typer(add_completion=False)
 
 
 
@@ -630,7 +630,7 @@ def convert(
             True, "--auto-break/--no-auto-break", help="Disable automatic line breaks in CSV headers"
         ),
         plain: bool = typer.Option(
-            False, "--plain", help="Output plain markdown without rich formatting"
+            False, "--plain", help="Output plain Markdown without rich formatting"
         ),
 
 ):

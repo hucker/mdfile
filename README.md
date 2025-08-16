@@ -27,22 +27,22 @@ def hello_world():
 Check out this function:
 
 <!--file example.py-->
-<!-- No files found matching pattern 'example.py' -->
 <!--file end-->
 ```
 
-**After running `mnm`:**
+**After running `mdfile`:**
 ````markdown
 # My Project
 
 Check out this function:
 
 <!--file example.py-->
-<!-- No files found matching pattern 'example.py' -->
+```python
+def hello_world():
+    return "Hello, world!"
+ ```
 <!--file end-->
 ````
-
-
 
 To make markdown with the output from the `cat factorial.py` shell command.  This can be difficult
 to get just right depending on the tool you are trying to use to pipe data from.  In the example
@@ -64,28 +64,76 @@ def factorial(n:int):
 ## Overview
 `MDFile` (`mfm`) 'converts' different file types to properly formatted markdown, supporting:
 - Code files (.py, .java, .js, and many more)
+- Multiple files can be displayed using file globs such as `<!--file *.py-->`.
 - CSV files (with table formatting)
-- JSON files (with syntax highlighting)
-- Markdown files 
+- JSON files (pretty printed,with syntax highlighting)
+- Markdown files inserted inline.
 - Text files (plain text conversion)
 
-**DISCLAIMER: convert is doing a bit of heavy lifting, in most cases the file extension is used to
-generate a text-block that the browser is used to render.  However, in the case of JSON files the
-files are pretty printed, and CSVs are loaded into Markdown Tables.**
 
 **USEFUL NOTE: Paths are relative to the file that you are processing, so if files are in other folders please
 reference them to the markdown file that you are reading from.**
 
 
 ## Installation
+
+If you are interested in development you can just go to github and clone the repository.
+
 ``` bash
 # Clone the repository
 git clone https://github.com/hucker/mdfile.git
-cd markymark
+cd mdfile
 
 # Install the package
 pip install -e .
 ```
+
+**RECOMMENDED INSTALLATION**
+If you are just interested in using `mdfile` as a tool the very best way to do it
+is to just install `uv` and run:
+
+```shell
+(.venv) chuck@Chucks-Mac-mini mdfile % uv tool install mdfile 
+Resolved 9 packages in 20ms
+Installed 9 packages in 10ms
+ + click==8.2.1
+ + markdown-it-py==4.0.0
+ + mdfile==0.5.0
+ + mdurl==0.1.2
+ + pygments==2.19.2
+ + rich==14.1.0
+ + shellingham==1.5.4
+ + typer==0.16.0
+ + typing-extensions==4.14.1
+Installed 1 executable: mdfile
+```
+
+And then test it:
+
+```shell
+(.venv) chuck@Chucks-Mac-mini mdfile % uvx mdfile --help   
+
+Usage: mdfile [OPTIONS] [FILE_NAME]
+
+  Convert a file to Markdown based on its extension.
+
+Arguments:
+  [FILE_NAME]  The file to convert to Markdown  \[default: README.md]
+
+Options:
+  -o, --output TEXT               Output file (if not specified, prints to
+                                  stdout)
+  -b, --bold TEXT                 Comma-separated values to make bold (for CSV
+                                  files)
+  --auto-break / --no-auto-break  Disable automatic line breaks in CSV headers
+                                  \[default: auto-break]
+  --plain                         Output plain markdown without rich
+                                  formatting
+  --help                          Show this message and exit.
+```
+
+and you should be off and running using this as a tool to update markdown files anywhere.
+
 ## Basic Usage
 
 
@@ -122,7 +170,6 @@ Total,490000,528000,543000,645000,2206000
 Here's a breakdown of our quarterly sales by region:
 
 <!--file sales_data.csv-->
-<!-- No files found matching pattern 'sales_data.csv' -->
 <!--file end-->
 
 As we can see from the data, Q4 had the strongest performance across all regions.
@@ -167,7 +214,6 @@ As we can see from the data, Q4 had the strongest performance across all regions
 The default configuration is:
 
 <!--file path/to/config.json-->
-<!-- No files found matching pattern 'path/to/config.json' -->
 <!--file end-->
 ```
 
@@ -179,12 +225,25 @@ The updated `README.md` file is shown below with the JSON pretty printed.
 The default configuration is:
 
 <!--file path/to/config.json-->
-<!-- No files found matching pattern 'path/to/config.json' -->
-<!--file end-->
+```json
+{
+    "name": "John Doe",
+    "age": 30,
+    "isStudent": false,
+    "grades": [
+        78,
+        85,
+        90
+    ],
+    "address": {
+        "street": "123 Main St",
+        "city": "New York",
+        "zip": "10001"
+    }
+}
 ```
+<!--file end-->
 ````
-
-
 
 ## File Type Support
 `MDFile` supports numerous file extensions allowing MarkDown to correctly syntax highlight:
@@ -206,53 +265,10 @@ When converting CSV files, you have additional options:
 - `--bold VALUE1,VALUE2,...` - Make specific columns bold in the table
 - `--auto-break/--no-auto-break` - Control automatic line breaks in CSV headers
 
-## Installation
-
-The recommended way to use this tool is to use `uv`
-
-```shell
-(.venv) chuck@Chucks-Mac-mini mdfile % uv tool install mdfile 
-Resolved 9 packages in 20ms
-Installed 9 packages in 10ms
- + click==8.2.1
- + markdown-it-py==4.0.0
- + mdfile==0.5.0
- + mdurl==0.1.2
- + pygments==2.19.2
- + rich==14.1.0
- + shellingham==1.5.4
- + typer==0.16.0
- + typing-extensions==4.14.1
-Installed 1 executable: mdfile
-```
-
-And then test it:
-
-```shell
-(.venv) chuck@Chucks-Mac-mini mdfile % uvx mdfile --help   
-
-Usage: mdfile [OPTIONS] [FILE_NAME]
-
-  Convert a file to Markdown based on its extension.
-
-Arguments:
-  [FILE_NAME]  The file to convert to Markdown  \[default: README.md]
-
-Options:
-  -o, --output TEXT               Output file (if not specified, prints to
-                                  stdout)
-  -b, --bold TEXT                 Comma-separated values to make bold (for CSV
-                                  files)
-  --auto-break / --no-auto-break  Disable automatic line breaks in CSV headers
-                                  \[default: auto-break]
-  --plain                         Output plain markdown without rich
-                                  formatting
-  --help                          Show this message and exit.
-```
 
 
 ### UV Run
-If you installed `mdfile` as a uv tool then you can run `mdfile` from anywhere.
+If you installed `mdfile` as a `uv` tool then you can run `mdfile` from anywhere.
 
 ```bash
 uvx mdfile ../README_template.md --output ../README.md

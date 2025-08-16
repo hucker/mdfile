@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mdfile"
-version = "0.6.0"
+version = "0.7.0"
 description = "Process and update Markdown files with embedded file/shell script output."
 readme = "README.md"
 license = "MIT"
