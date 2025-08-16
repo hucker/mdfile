@@ -3,7 +3,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [project]
-name = "markymark"  # Replace with your package's name
+name = "mdfile"  # Replace with your package's name
 version = "0.1.0"   # Initial version
 author = "chuck"  # Replace with your name
 author-email = "chuck@acrocad.net"  # Replace with your email
@@ -30,14 +30,19 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/hucker/markymark"  # URL for your project repo
+Homepage = "https://github.com/hucker/mdfile"  # URL for your project repo
+
+[project.scripts]
+# Define CLI entry points here
+mdfile = "mdfile.mdfile:app"
+
 
 [tool.setuptools]
-packages = ["markymark"]  # Replace with the main package(s) name
+packages = ["mdfile"]  # Replace with the main package(s) name
 
 
 [tool.poetry]
-name = "markymark"
+name = "mdfile"
 version = "0.0.1"
 description = "File Insertion for Markdown"
 authors = ["Chuck Bass <chuck@acrocad.net>"]

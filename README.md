@@ -1,5 +1,5 @@
 
-# MDFile (mdf)
+# `MDFile` (mdf)
 A utility that dynamically imports content from external files or commands into your Markdown documents. 
 Perfect for keeping code samples, data, and command outputs in sync with your documentation.
 
@@ -64,7 +64,7 @@ def factorial(n:int):
 `<!--process end-->`
 
 ## Overview
-MarkdownMaker (mnm) 'converts' different file types to properly formatted markdown, supporting:
+`MDFile` (`mfm`) 'converts' different file types to properly formatted markdown, supporting:
 - Code files (.py, .java, .js, and many more)
 - CSV files (with table formatting)
 - JSON files (with syntax highlighting)
@@ -82,7 +82,7 @@ reference them to the markdown file that you are reading from.**
 ## Installation
 ``` bash
 # Clone the repository
-git clone https://github.com/hucker/markymark.git
+git clone https://github.com/hucker/mdfile.git
 cd markymark
 
 # Install the package
@@ -128,9 +128,9 @@ Here's a breakdown of our quarterly sales by region:
 
 As we can see from the data, Q4 had the strongest performance across all regions.
 ```
-#### After Running MarkdownMaker:
+#### After Running `MDFile`:
 ``` bash
-python -m mnm convert report.md --bold "Total" -o final_report.md
+python -m mdmfile.py convert report.md --bold "Total" -o final_report.md
 ```
 
 ---
@@ -202,7 +202,7 @@ The default configuration is:
 
 
 ## File Type Support
-MarkdownMaker supports numerous file extensions allowing MarkDown to correctly syntax highlight:
+`MDFile` supports numerous file extensions allowing MarkDown to correctly syntax highlight:
 - Python: `.py`, `.pyw`, `.pyx`, `.pyi`
 - JavaScript: `.js`, `.mjs`, `.cjs`
 - TypeScript: `.ts`, `.tsx`
@@ -226,7 +226,7 @@ When converting CSV files, you have additional options:
 ### Help
 
 ```text
-(.venv) chuck@Chucks-Mac-mini markymark % python mnm.py --help
+(.venv) chuck@Chucks-Mac-mini mdfile % python mnm.py --help
                                                                                                                                                                                                                                                                                                                                                                                    
  Usage: mnm.py [OPTIONS] [FILE_NAME]                                                                                                                                                                                                                                                                                                                                                
                                                                                                                                                                                                                                                                                                                                                                                    
