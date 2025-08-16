@@ -1,33 +1,20 @@
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "mdfile"
-version = "0.4.0"
-author = "chuck"
-author-email = "chuck@acrocad.net"
+version = "0.5.0"
 description = "Process and update Markdown files with embedded file/shell script output."
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+authors = [{name="Chuck Bass", email="chuck@acrocad.net"}]
+requires-python = ">=3.10, <3.15"
 keywords = ["markdown", "CLI", "markdown-processing"]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Intended Audience :: Developers",
-    "Topic :: Software Development :: Libraries",
-]
 
 dependencies = [
     "typer",
+    "rich",
 ]
 
 [project.urls]
@@ -42,25 +29,9 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.poetry]
-name = "mdfile"
-version = "0.4.0"
-description = "File Insertion for Markdown"
-authors = ["Chuck Bass <chuck@acrocad.net>"]
-readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "~3.10 || ~3.11 || ~3.12 || ~3.13 || ~3.14"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.4"
-coverage = "^7.6.1"
-isort = "^6.0.1"
-pylint = "^3.2.7"
-setuptools = "^74.1.1"
-tox = "^4.24.0"
-mypi = "^0.0.3"
-ruff = "^0.9.7"
-uv = "^0.6.2"
-radon = "^6.0.0"
-pytest-xdist = "^3.6.1"
+[tool.dev-dependencies]
+pytest = "^7.0.0"  # For testing
+mypy = "^1.0.0"    # For type checking
+black = "^23.0.0"  # Code formatter
+isort = "^5.10.0"  # For sorting imports
+pre-commit = "^3.0.0"  # For pre-commit hooks

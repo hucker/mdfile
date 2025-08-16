@@ -27,6 +27,7 @@ def hello_world():
 Check out this function:
 
 <!--file example.py-->
+<!-- No files found matching pattern 'example.py' -->
 <!--file end-->
 ```
 
@@ -37,10 +38,7 @@ Check out this function:
 Check out this function:
 
 <!--file example.py-->
-```python
-def hello_world():
-    return "Hello, world!"
-```
+<!-- No files found matching pattern 'example.py' -->
 <!--file end-->
 ````
 
@@ -93,16 +91,16 @@ pip install -e .
 
 The basic command for converting files is:
 ``` bash
-python -m mnm [FILE_PATH] [OPTIONS]
+uvx mdfile [FILE_PATH] [OPTIONS]
 ```
 If you don't specify a file, it defaults to `README.md`.
 ### Command Line Options
 ``` bash
 # Convert a file and print to stdout
-python -m mnm README.md
+uvx mdfile README.md
 
 # Disable automatic line breaks in CSV headers
-python -m mnm README.md --no-auto-break
+uvx mdfile README.md --no-auto-break
 ```
 ## Examples
 ### CSV to Markdown Table Conversion
@@ -124,13 +122,14 @@ Total,490000,528000,543000,645000,2206000
 Here's a breakdown of our quarterly sales by region:
 
 <!--file sales_data.csv-->
+<!-- No files found matching pattern 'sales_data.csv' -->
 <!--file end-->
 
 As we can see from the data, Q4 had the strongest performance across all regions.
 ```
 #### After Running `MDFile`:
 ``` bash
-python -m mdmfile.py convert report.md --bold "Total" -o final_report.md
+uvx mdfile report.md --bold "Total" -o final_report.md
 ```
 
 ---
@@ -168,6 +167,7 @@ As we can see from the data, Q4 had the strongest performance across all regions
 The default configuration is:
 
 <!--file path/to/config.json-->
+<!-- No files found matching pattern 'path/to/config.json' -->
 <!--file end-->
 ```
 
@@ -179,22 +179,7 @@ The updated `README.md` file is shown below with the JSON pretty printed.
 The default configuration is:
 
 <!--file path/to/config.json-->
-```json
-{
-  "name": "John Doe",
-  "age": 30,
-  "isStudent": false,
-  "grades": [
-    78,
-    85,
-    90
-  ],
-  "address": {
-    "street": "123 Main St",
-    "city": "New York",
-    "zip": "10001"
-  }
-}
+<!-- No files found matching pattern 'path/to/config.json' -->
 <!--file end-->
 ```
 ````
@@ -221,51 +206,68 @@ When converting CSV files, you have additional options:
 - `--bold VALUE1,VALUE2,...` - Make specific columns bold in the table
 - `--auto-break/--no-auto-break` - Control automatic line breaks in CSV headers
 
-## Examples
+## Installation
 
-### Help
+The recommended way to use this tool is to use `uv`
 
-```text
-(.venv) chuck@Chucks-Mac-mini mdfile % python mnm.py --help
-                                                                                                                                                                                                                                                                                                                                                                                   
- Usage: mnm.py [OPTIONS] [FILE_NAME]                                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                   
- Convert a file to Markdown based on its extension.                                                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                   
-╭─ Arguments ──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│   file_name      [FILE_NAME]  The file to convert to Markdown [default: ../README.md]                                    │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --output              -o                     TEXT  Output file (if not specified, prints to stdout) [default: None]      │
-│ --bold                -b                     TEXT  Comma-separated values to make bold (for CSV files) [default: None]   │
-│ --auto-break              --no-auto-break          Disable automatic line breaks in CSV headers [default: auto-break]    │
-│ --help                                             Show this message and exit.                                           │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+```shell
+(.venv) chuck@Chucks-Mac-mini mdfile % uv tool install mdfile 
+Resolved 9 packages in 20ms
+Installed 9 packages in 10ms
+ + click==8.2.1
+ + markdown-it-py==4.0.0
+ + mdfile==0.5.0
+ + mdurl==0.1.2
+ + pygments==2.19.2
+ + rich==14.1.0
+ + shellingham==1.5.4
+ + typer==0.16.0
+ + typing-extensions==4.14.1
+Installed 1 executable: mdfile
 ```
+
+And then test it:
+
+```shell
+(.venv) chuck@Chucks-Mac-mini mdfile % uvx mdfile --help   
+
+Usage: mdfile [OPTIONS] [FILE_NAME]
+
+  Convert a file to Markdown based on its extension.
+
+Arguments:
+  [FILE_NAME]  The file to convert to Markdown  \[default: README.md]
+
+Options:
+  -o, --output TEXT               Output file (if not specified, prints to
+                                  stdout)
+  -b, --bold TEXT                 Comma-separated values to make bold (for CSV
+                                  files)
+  --auto-break / --no-auto-break  Disable automatic line breaks in CSV headers
+                                  \[default: auto-break]
+  --plain                         Output plain markdown without rich
+                                  formatting
+  --help                          Show this message and exit.
+```
+
 
 ### UV Run
-It wouldn't be an example unless we showed you that you can run `mnm` with `uv` without knowing anything beyond
-installing `uv` on your machine by taking advantage of support for [PEP 723](https://peps.python.org/pep-0723/). 
-
-ASSUMING that you have `uv` installed on your machine and that you have `mnm.py` installed on your machine
-
-This is the recommended way of using `mnm`.
+If you installed `mdfile` as a uv tool then you can run `mdfile` from anywhere.
 
 ```bash
-uv run mnm.py ../README_template.md --output ../README.md
+uvx mdfile ../README_template.md --output ../README.md
 ```
-
 
 
 ### Convert a CSV file with bold totals
 
 ``` bash
-python -m mnm sales_data.csv --bold "Total,Sum" -o sales_report.md
+uvx mdfile sales_data.csv --bold "Total,Sum" -o sales_report.md
 ```
 ### Update embedded references in a markdown file
 
 ``` bash
-python -m mnm documentation.md -o updated_docs.md
+uvx mdfile documentation.md -o updated_docs.md
 ```
 
 ## Contributing
