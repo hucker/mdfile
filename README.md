@@ -69,6 +69,7 @@ def factorial(n:int):
 - JSON files (pretty printed,with syntax highlighting)
 - Markdown files inserted inline.
 - Text files (plain text conversion)
+- Basic variable substitution.
 
 
 **USEFUL NOTE: Paths are relative to the file that you are processing, so if files are in other folders please
@@ -129,6 +130,7 @@ Options:
                                   \[default: auto-break]
   --plain                         Output plain markdown without rich
                                   formatting
+  --version     -v                Show version and exit   
   --help                          Show this message and exit.
 ```
 
@@ -265,7 +267,24 @@ When converting CSV files, you have additional options:
 - `--bold VALUE1,VALUE2,...` - Make specific columns bold in the table
 - `--auto-break/--no-auto-break` - Control automatic line breaks in CSV headers
 
+## Variable Substitution
+`mdfile` supports a basic form of variable substitution.  At this time the following are supported:
 
+| Variable     | Description          |
+|--------------|----------------------|
+| `{{$name}}`    | `mdfile`             |
+| `{{$date}}`    | current date         |
+| `{{$time}}`    | current time         |
+| `{{$version}}` | build version        |
+
+These values are imported directly into the markdown file with no special markdown tags, just raw text
+this allows you to have text such as
+
+```App **{{$name}}** version **{{$version}}** was created on {{$date}```
+
+To get the text
+
+App **mdfile** version **0.10.0** was created on 1/1/2024
 
 ### UV Run
 If you installed `mdfile` as a `uv` tool then you can run `mdfile` from anywhere.
