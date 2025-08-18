@@ -5,7 +5,7 @@ Perfect for keeping code samples, data, and command outputs in sync with your do
 
 ## Key Features
 
-- **Live Synchronization**: Automatically updates your markdown when source files change
+- **Live Synchronization**: Automatically updates your Markdown when source files change
 - **Multiple Import Methods**: Import files directly or capture command outputs
 - **Smart Formatting**: Automatically applies correct syntax highlighting based on file extension
 - **Table Formatting**: Converts CSV data into well-formatted Markdown tables
@@ -46,7 +46,7 @@ def hello_world():
 
 To make markdown with the output from the `cat factorial.py` shell command.  This can be difficult
 to get just right depending on the tool you are trying to use to pipe data from.  In the example
-below the `cat` command is used to copy the data into the markdown file, but any command can be used.
+below the `cat` command is used to copy the data into the Markdown file, but any command can be used.
 Keep in mind that some tools act differently when they are generating data for a tty compared to 
 when they are piping data into a file.
 
@@ -62,7 +62,7 @@ def factorial(n:int):
 `<!--process end-->`
 
 ## Overview
-`MDFile` (`mfm`) 'converts' different file types to properly formatted markdown, supporting:
+`MDFile` (`mfm`) 'converts' different file types to properly formatted Markdown, supporting:
 - Code files (.py, .java, .js, and many more)
 - Multiple files can be displayed using file globs such as `<!--file *.py-->`.
 - CSV files (with table formatting)
@@ -72,7 +72,7 @@ def factorial(n:int):
 
 
 **USEFUL NOTE: Paths are relative to the file that you are processing, so if files are in other folders please
-reference them to the markdown file that you are reading from.**
+reference them to the Markdown file that you are reading from.**
 
 
 ## Installation
@@ -132,7 +132,7 @@ Options:
   --help                          Show this message and exit.
 ```
 
-and you should be off and running using this as a tool to update markdown files anywhere.
+and you should be off and running using this as a tool to update Markdown files anywhere.
 
 ## Basic Usage
 
@@ -280,7 +280,7 @@ uvx mdfile ../README_template.md --output ../README.md
 ``` bash
 uvx mdfile sales_data.csv --bold "Total,Sum" -o sales_report.md
 ```
-### Update embedded references in a markdown file
+### Update embedded references in a Markdown file
 
 ``` bash
 uvx mdfile documentation.md -o updated_docs.md

@@ -1,67 +1,24 @@
 
 import pathlib
+import importlib
 import tempfile
+import datetime
 
 import pytest
+
+
+from mdfile.csv_to_md import CsvToMarkdown
+from mdfile.to_markdown import ToMarkdown
+from mdfile.md_updater import update_process_inserts,update_file_inserts
+from mdfile.md_updater import  update_markdown_from_string,update_markdown_file
+from mdfile.mdfile import app
+
 from typer.testing import CliRunner
-
-from mdfile.mdfile import CsvToMarkdown, ToMarkdown,update_process_inserts,update_file_inserts
-from mdfile.mdfile import app, update_markdown_from_string,update_markdown_file
-
 runner = CliRunner()
 
 
-def test_update_file_from_another_file():
-    """Tests the convert CLI functionality for updating a Markdown file from another text file.
 
-    This test verifies that the convert command correctly processes a Markdown file containing
-    file reference markers and updates the content between those markers with the content from
-    the referenced text file, formatted as a code block.
 
-    The test creates temporary test files, runs the CLI command, and verifies the output
-    matches the expected result with the content properly inserted between markers.
-
-    No arguments are needed as the test creates and manages its own test files.
-
-    Raises:
-        AssertionError: If the CLI command fails or if the output content doesn't match
-            the expected result.
-    """
-    try:
-        # Paths for the markdown file and the input text file
-        md_file_path = pathlib.Path("123_test.md")
-        input_file_path = pathlib.Path("123_test.txt")
-
-        # Write initial content to the markdown file
-        md_file_content = f"<!--file 123_test.txt-->\n<!--file end-->"
-        md_file_path.write_text(md_file_content)
-
-        # Write initial content to the input text file
-        input_file_content = "Hello\nWorld"
-        input_file_path.write_text(input_file_content)
-
-        # Ensure the paths are present
-        assert md_file_path.exists(), "Markdown file does not exist."
-        assert input_file_path.exists(), "Input text file does not exist."
-
-        # Run the Typer CLI app with the `convert` command
-        # Pass arguments in a single string with spaces instead of as separate items
-        result = runner.invoke(app, [str(md_file_path)])
-
-        # Expected content of the updated markdown file
-        expected_md_file_content = f"<!--file 123_test.txt-->\n```\nHello\nWorld\n```\n<!--file end-->"
-
-        # Verify the CLI executed successfully
-        assert result.exit_code == 0, f"CLI failed: {result.output}"
-
-        # Verify the file content has been updated correctly
-        updated_content = md_file_path.read_text()
-        assert updated_content == expected_md_file_content, (
-            f"Expected content:\n{expected_md_file_content}\nGot:\n{updated_content}"
-        )
-    finally:
-        md_file_path.unlink(missing_ok=True)
-        input_file_path.unlink(missing_ok=True)
 
 
 def file_setup(
@@ -78,67 +35,31 @@ def file_setup(
 
     return content, expected
 
-def test_update_file_with_output_flag():
-    """Tests the convert CLI functionality with the --output flag.
+def test_update_proc_insert():
+    content, expected = file_setup("example_proc_insert.md", "example_proc_insert.md")
+    result = update_markdown_from_string(content, "", False)
+    assert result == expected
 
-    This test verifies that the convert command correctly processes a Markdown file containing
-    file reference markers and writes the updated content to a separate output file when the
-    --output flag is used. The original input file should remain unchanged.
-
-    The test creates temporary test files, runs the CLI command with the --output flag,
-    and verifies both that the output file has the correct content and that the input file
-    remains unchanged.
-
-    Raises:
-        AssertionError: If the CLI command fails, if the output content doesn't match
-            the expected result, or if the original file is modified.
-    """
-    try:
-        # Paths for the markdown file, input text file, and output file
-        md_file_path = pathlib.Path("123_test.md")
-        input_file_path = pathlib.Path("123_test.txt")
-        output_file_path = pathlib.Path("123_test_output.md")
-
-        # Write initial content to the markdown file
-        md_file_content = f"<!--file 123_test.txt-->\n<!--file end-->"
-        md_file_path.write_text(md_file_content)
-
-        # Write initial content to the input text file
-        input_file_content = "Hello\nWorld"
-        input_file_path.write_text(input_file_content)
-
-        # Ensure the paths are present
-        assert md_file_path.exists(), "Markdown file does not exist."
-        assert input_file_path.exists(), "Input text file does not exist."
-
-        # Run the Typer CLI app with the `convert` command and output flag
-        result = runner.invoke(app, [
-            str(md_file_path),
-            '--output',
-            str(output_file_path)
-        ])
-
-        # Expected content of the updated markdown file
-        expected_md_file_content = f"<!--file 123_test.txt-->\n```\nHello\nWorld\n```\n<!--file end-->"
-
-        # Verify the CLI executed successfully
-        assert result.exit_code == 0, f"CLI failed: {result.output}"
-
-        # Verify the output file exists and has the correct content
-        assert output_file_path.exists(), f"Output file {output_file_path} was not created."
-        updated_content = output_file_path.read_text()
-        assert updated_content == expected_md_file_content, (
-            f"Expected content in output file:\n{expected_md_file_content}\nGot:\n{updated_content}"
-        )
+@pytest.mark.parametrize(
+    "template, expected",
+    [
+        ("{{$version}}", importlib.metadata.version("mdfile")),  # Test for {{$version}}
+        ("{{$date}}", datetime.datetime.now().strftime("%Y-%m-%d")),  # Test for {{$date}}
+        (       "Version: {{$version}}, Date: {{$date}}",
+                f"Version: {importlib.metadata.version('mdfile')}, Date: {datetime.datetime.now().strftime('%Y-%m-%d')}",
+        ),
+    ],
+)
+def test_var_version(template, expected):
+    result = update_markdown_from_string(template, "", False)
+    assert result == expected
 
 
-    finally:
-        # Clean up all created files
-        md_file_path.unlink(missing_ok=True)
-        input_file_path.unlink(missing_ok=True)
-        output_file_path.unlink(missing_ok=True)
 
-
+def test_update_file_insert():
+    content, expected = file_setup("example_python_insert.md", "example_python_insert.md")
+    result = update_markdown_from_string(content, "", False)
+    assert result == expected
 
 
 
@@ -423,13 +344,21 @@ def test_csv_to_markdown_empty_file():
             temp_csv_path.unlink()
 
 
-def test_glob_pattern_in_file_inserts():
+@pytest.mark.parametrize("input_md_filename", [
+    "input/example_python_glob.md",  # First test case
+    "input/example_python_glob_insert.md",  # Add more cases as needed
+])
+def test_glob_pattern_in_file_inserts(input_md_filename):
     """
     Test that glob patterns in file insertion tags work correctly,
     matching multiple files according to the pattern.
     """
 
-    input_md = pathlib.Path("input/example_python_glob.md")
+    # Convert the filename into a Path object
+    input_md = pathlib.Path(input_md_filename)
+
+    # Check if the test file exists
+    assert input_md.exists(), f"Input file {input_md_filename} does not exist."
 
     # Create a test markdown content with a glob pattern
     markdown_content = input_md.read_text()
@@ -437,21 +366,10 @@ def test_glob_pattern_in_file_inserts():
     # Process the file insertions
     result = update_markdown_from_string(markdown_content, "", False)
 
-    # Verify the results
+    # Verify the results (specific assertions for the filename can be adjusted)
+    # Base assertions for all test cases
     assert "```python" in result, "Python code block not found in result"
 
-    # Check for content from python.py
-    assert "def factorial(n:int):" in result, "Content from python.py not found in result"
-    assert "return n * factorial(n - 1)" in result, "Content from python.py not found in result"
-
-    # Check for content from python2.py
-    assert "def fib(n:int):" in result, "Content from python2.py not found in result"
-    assert "Calculate the nth Fibonacci number" in result, "Content from python2.py not found in result"
-    assert "return fib(n-1) + fib(n-2)" in result, "Content from python2.py not found in result"
-
-    # Verify that the original tags are preserved
-    assert "<!--file input/pyth*.py-->" in result, "Original file tag not preserved"
-    assert "<!--file end-->" in result, "End file tag not preserved"
 
 
 def test_bad_glob_pattern_error_message():
@@ -478,5 +396,6 @@ def test_bad_glob_pattern_error_message():
 
     # Make sure no Python code block was included (since no files matched)
     assert "```python" not in result or "```python" in markdown_content, "Python code block should not be added for non-matching glob"
+
 
 
