@@ -1,18 +1,59 @@
 
-# `MDFile` (mdf)
+# `MDFile` Overview
 A utility that dynamically imports content from external files or commands into your Markdown documents. 
 Perfect for keeping code samples, data, and command outputs in sync with your documentation.
 
+MDFile supports directly copying data into Markdown files using the following format:
+
+```markdown
+# My Project - {{$version}}
+
+Check out this function:
+
+{{file example.py}}
+
+Files used in this project:
+{{process ls -a}}
+
+ 
+```
+
+After running `mdfile`,  you would have where each of the {{}} macros are expanded into the file.
+
+````markdown
+# My Project - 0.1.0
+
+Check out this function:
+
+```python
+def hello():
+    print("example")
+```
+
+Files used in this project:
+```text
+mdfile.py __init__.py
+````
+
+`mdfile` is able to convert CSV files to Markdown tables as well as pretty print JSON files. Most
+file inclusions will autodetect the format based on the file extension to enable browsers to 
+syntax highlight as needed.
+
 ## Key Features
 
-- **Live Synchronization**: Automatically updates your Markdown when source files change
 - **Multiple Import Methods**: Import files directly or capture command outputs
 - **Smart Formatting**: Automatically applies correct syntax highlighting based on file extension
 - **Table Formatting**: Converts CSV data into well-formatted Markdown tables
 - **JSON Prettification**: Properly formats and highlights JSON data
-
+- **Direct Markdown Insertion**: Markdown files are imported directly.
+- **Variable Expansion**: Commonly used variables are available (e.g., $version)
 
 ## Quick Example
+
+The following example shows how to use `mdfile` using the markdown comment tags.  These tags allow you
+to dynamically update a Markdown file in place since the tags remain after update AND the text between tags 
+is ignored when the file is updated again.  This feature is useful, but can be dangerous if you delete
+half of a tag pair.
 
 **Source file (example.py):**
 ```python
@@ -45,7 +86,8 @@ def hello_world():
 ````
 
 To make markdown with the output from the `cat factorial.py` shell command.  This can be difficult
-to get just right depending on the tool you are trying to use to pipe data from.  In the example
+to get just right depending on the tool you are trying to use to pipe data from because different
+command line utilities behave differently when data is displayed in a tty vs. a pipe. In the example
 below the `cat` command is used to copy the data into the Markdown file, but any command can be used.
 Keep in mind that some tools act differently when they are generating data for a tty compared to 
 when they are piping data into a file.
@@ -62,7 +104,7 @@ def factorial(n:int):
 `<!--process end-->`
 
 ## Overview
-`MDFile` (`mfm`) 'converts' different file types to properly formatted Markdown, supporting:
+`MDFile` 'converts' different file types to properly formatted Markdown, supporting:
 - Code files (.py, .java, .js, and many more)
 - Multiple files can be displayed using file globs such as `<!--file *.py-->`.
 - CSV files (with table formatting)
@@ -70,6 +112,7 @@ def factorial(n:int):
 - Markdown files inserted inline.
 - Text files (plain text conversion)
 - Basic variable substitution.
+- Supports Overwrite (<!-- file x.x->) syntax and insertion {{file}} syntax.
 
 
 **USEFUL NOTE: Paths are relative to the file that you are processing, so if files are in other folders please
@@ -78,7 +121,7 @@ reference them to the Markdown file that you are reading from.**
 
 ## Installation
 
-If you are interested in development you can just go to github and clone the repository.
+If you are interested in development you can just go to GitHub and clone the repository. 
 
 ``` bash
 # Clone the repository
@@ -277,33 +320,31 @@ When converting CSV files, you have additional options:
 | `{{$time}}`    | current time         |
 | `{{$version}}` | build version        |
 
-These values are imported directly into the markdown file with no special markdown tags, just raw text
+These values are imported directly into the markdown file with no special Markdown tags, just raw text
 this allows you to have text such as
 
-```App **{{$name}}** version **{{$version}}** was created on {{$date}```
+```App **{{$name}}** version **{{$version}}** was created on {{$date}}```
 
 To get the text
 
 App **mdfile** version **0.10.0** was created on 1/1/2024
 
-### UV Run
-If you installed `mdfile` as a `uv` tool then you can run `mdfile` from anywhere.
+### UVX
+If you installed `mdfile` as a `uv` tool then you can run `mdfile` from anywhere using 
+the `uvx` tool.
 
 ```bash
 uvx mdfile ../README_template.md --output ../README.md
 ```
 
-
-### Convert a CSV file with bold totals
-
-``` bash
-uvx mdfile sales_data.csv --bold "Total,Sum" -o sales_report.md
-```
-### Update embedded references in a Markdown file
-
 ``` bash
 uvx mdfile documentation.md -o updated_docs.md
 ```
+
+## Disclaimer
+This tool was made open source because it is somewhat useful as it grew features over time. It is
+not a great example of how to write clean code since it grew organically in several projects. Don't
+be too harsh judging the code.
 
 ## Contributing
 
