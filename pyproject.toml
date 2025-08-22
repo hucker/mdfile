@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mdfile"
-version = "0.8.0"
-description = "Process and update Markdown files with embedded file/shell script output."
+version = "0.9.0"
+description = "Process and update Markdown files with embedded file/process/var data."
 readme = "README.md"
 license = "MIT"
 authors = [{name="Chuck Bass", email="chuck@acrocad.net"}]
