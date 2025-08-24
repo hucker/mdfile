@@ -1,6 +1,6 @@
 #!/user/bin/env -S uv run --script
 # /// script
-# dependencies = ["typer","rich"]
+# dependencies = ["typer","rich","click"]
 # ///
 """
 MarkDown File Manipulation (MNM) - Tools for converting various file formats to Markdown.
@@ -84,18 +84,33 @@ def handle_update_markdown_file(
     return updated_content
 
 
-def version_callback(value:bool):
-    """Show appp version"""
-    if value:
-        typer.echo(f"{__app_name__} v{__version__}")
-        raise typer.Exit()
+def ensure_valid_args(file_name, out_file, bold_values, auto_break, plain, version):
+    """
+    Validate command arguments and exit with an error message if invalid.
+
+    Checks for required arguments and file existence, exiting with code 1
+    if validation fails.
+    """
+    if file_name is None:
+        typer.echo("Error: Please provide a markdown file to process (use --help)", err=True)
+        raise typer.Exit(code=1)
+
+    if not pathlib.Path(file_name).exists():
+        typer.echo(f"Error: File '{file_name}' does not exist.", err=True)
+        raise typer.Exit(code=1)
+
+# Configure help options through context_settings
+context_settings = {
+    "help_option_names": ["-h", "--help"],
+}
 
 app = typer.Typer(add_completion=False)
 
 
+
 @app.command()
 def convert(
-        file_name: str = typer.Argument( help="The file to convert to Markdown"),
+        file_name: str = typer.Argument(None, help="The file to convert to Markdown"),
         output: Optional[str] = typer.Option(
             None, "--output", "-o", help="Output file (if not specified, prints to stdout)"
         ),
@@ -109,16 +124,18 @@ def convert(
             False, "--plain", help="Output plain Markdown without rich formatting"
         ),
         version:bool= typer.Option(
-            None, "--version", '-v' ,callback=version_callback, is_eager=True, help="Show version and exit"
-        ),
+            None, "--version", '-v' ,callback=version_callback, help="Show version and exit"
+        ),  # noqa: B008, PLW0613
+
 
 ):
+
+    # Exits with bad arguments
+    ensure_valid_args(file_name,output,bold_values,auto_break,plain,version)
+
     """Convert a file to Markdown based on its extension."""
     try:
 
-        if not pathlib.Path(file_name).exists():
-            typer.echo(f"Error: File '{file_name}' does not exist.", err=True)
-            raise typer.Exit(code=1)
 
         markdown_text = handle_update_markdown_file(file_name,
                                                     bold=bold_values,
