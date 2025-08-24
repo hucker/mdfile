@@ -153,7 +153,7 @@ def test_nonexistent_file_error():
 
     # Assertions
     assert result.exit_code == 1  # Ensure the exit code is 1 (error)
-    assert "Error: File 'nonexistent_file.md' does not exist." in result.stdout  # Check error message
+    assert "Error: File 'nonexistent_file.md' does not exist." in result.stderr  # Check error message
 
 
 def test_missing_filename_error():
@@ -161,7 +161,7 @@ def test_missing_filename_error():
     result = runner.invoke(app, ["--bold", "Value1,Value2"])
 
     assert result.exit_code == 1
-    assert "Error: Please provide a markdown file to process" in result.stdout
+    assert "Error: Please provide a markdown file to process" in result.stderr
 
 
 def test_missing_filename_error_with_multiple_options():
@@ -173,4 +173,4 @@ def test_missing_filename_error_with_multiple_options():
     ])
 
     assert result.exit_code == 1
-    assert "Error: Please provide a markdown file to process" in result.stdout
+    assert "Error: Please provide a markdown file to process" in result.stderr
