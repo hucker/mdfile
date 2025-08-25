@@ -1,0 +1,37 @@
+# Byte-compiled files
+*.py[cod]
+__pycache__/
+
+# Virtual environment folders
+.env/
+.venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.pypirc
+
+# Test
+test/dist/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Pytest cache
+.pytest_cache/
+
+# Editor/IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+
+# Jupyter Notebooks checkpoints
+.ipynb_checkpoints/
+
+# OS generated files
+.DS_Store
+Thumbs.db
