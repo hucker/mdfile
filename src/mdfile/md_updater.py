@@ -1,16 +1,17 @@
+import io
+import os
 import pathlib
-import datetime
 import re
 import shlex
 import subprocess
-import io
 from typing import Optional
-from importlib.metadata import version
 
 from rich.console import Console
 from rich.panel import Panel
 
 from .md_factory import markdown_factory
+from .vars import load_vars
+from .dotted_dict import DottedDict
 
 def update_file_inserts(content: str, bold: str, auto_break: bool) -> str:
     """
@@ -62,9 +63,10 @@ def update_file_inserts(content: str, bold: str, auto_break: bool) -> str:
             # No files found - add a comment indicating that
             new_block = f"<!--file {glob_pattern}-->\n<!-- No files found matching pattern '{glob_pattern}' -->\n<!--file end-->"
 
-        new_content = new_content.replace(old_block, new_block,1)
+        new_content = new_content.replace(old_block, new_block, 1)
 
     return new_content
+
 
 def update_file_placeholders(content: str, bold: Optional[str] = None, auto_break: bool = False) -> str:
     """
@@ -118,6 +120,7 @@ def update_file_placeholders(content: str, bold: Optional[str] = None, auto_brea
         new_content = new_content.replace(full_placeholder, all_markdown, 1)
 
     return new_content
+
 
 def update_process_inserts(content: str, timeout_sec=30) -> str:
     """
@@ -176,7 +179,7 @@ def update_process_inserts(content: str, timeout_sec=30) -> str:
             output = string_io.getvalue()
             new_block = f"<!--process {command}-->\n{output}\n<!--process end-->"
 
-        new_content = new_content.replace(old_block, new_block,1)
+        new_content = new_content.replace(old_block, new_block, 1)
 
     return new_content
 
@@ -238,37 +241,70 @@ def update_process_placeholders(content: str, timeout_sec=30) -> str:
             output = string_io.getvalue()
             new_block = f"<!--process {command}-->\n{output}\n<!--process end-->"
 
-        new_content = new_content.replace(old_block, new_block,1)
+        new_content = new_content.replace(old_block, new_block, 1)
 
     return new_content
 
 
-def update_var_placeholders(content: str, vars: dict = {}) -> str:
+def is_sensitive_api_env(var_name: str) -> bool:
     """
-    Replace {{$var}} placeholders with corresponding values from the vars dictionary.
-    If a placeholder does not have a matching variable in vars, it replaces it with 'Var {var} not found'.
+    Determine if an environment variable name is likely to contain
+    an API key or secret, so it can be blocked from output.
+    """
+    var_name_upper = var_name.upper()
+    # Block if starts with API_, contains _API_, ends with _API,
+    # or contains common secret/key/token patterns
+    patterns = [
+        "API_", "_API_", "_API",
+        "_SECRET", "SECRET_", "_TOKEN", "TOKEN_", "_KEY", "KEY_"
+    ]
+    return any(pat in var_name_upper for pat in patterns)
+
+def update_var_placeholders(content: str, vars_file: str | None = None) -> str:
+    """
+    Replace {{$var}} placeholders with values from vars dictionary or environment.
+    If a placeholder starts with ENV., it will read from os.environ.
+    If a placeholder is not found, it is replaced with 'Var {var} not found'.
 
     Args:
-        content (str): The input content containing `{{$var}}` placeholders.
-        vars (dict): A dictionary of variables and their values.
+        content (str): Input content containing `{{$var}}` placeholders.
+        vars_file (str | None): Path to JSON file containing variables.
 
     Returns:
-        str: The updated content with placeholders replaced.
+        str: Updated content with placeholders replaced.
     """
-    # Regex to find {{$var}} placeholders
-    placeholder_pattern = r'\{\{\$([a-zA-Z][a-zA-Z0-9_]*)\}\}'
+    # Load vars from JSON file if provided
+    vars:DottedDict  = load_vars(vars_file)
 
-    # Match placeholders and replace them with corresponding values or a default message
-    def replacer(match):
-        var_name = match.group(1)  # Extract the variable name (e.g., "version")
-        # Replace with the value from vars if it exists, otherwise use the default value
-        return str(vars.get(var_name, f"Var {var_name} not found"))
+    # Regex to find {{$var}} placeholders (letters, digits, underscores, or dots)
+    placeholder_pattern = r'\{\{\$([a-zA-Z][a-zA-Z0-9_.]*)\}\}'
 
-    # Perform replacement using re.sub
+    def replacer(match: re.Match) -> str:
+        var_name: str = match.group(1)
+
+        # Block potentially sensitive API keys
+        if is_sensitive_api_env(var_name):
+            return f"Var {var_name} blocked."
+
+        # ENV lookup
+        if var_name.startswith("ENV."):
+            env_key = var_name[4:]
+            return os.environ.get(env_key, f"Var {var_name} not found")
+        # vars dict lookup
+        if var_name in vars:
+            return str(vars[var_name])
+        # fallback
+        return f"Var ENV.{var_name} not found"
+
     return re.sub(placeholder_pattern, replacer, content)
 
 
-def update_markdown_from_string(content: str, bold: str, auto_break: bool,vars:dict={}) -> str:
+
+
+def update_markdown_from_string(content: str,
+                                bold: str,
+                                auto_break: bool,
+                                vars_file:pathlib.Path | None=None) -> str:
     """
     Parse a Markdown string and replace special placeholders with actual file contents
     or process output.
@@ -298,10 +334,7 @@ def update_markdown_from_string(content: str, bold: str, auto_break: bool,vars:d
 
         content = update_process_placeholders(content)
 
-        content = update_var_placeholders(content,vars={'version':version("mdfile"),
-                                                        'name':'mdfile',
-                                                        'date':datetime.datetime.now().strftime("%Y-%m-%d"),
-                                                        'time':datetime.datetime.now().strftime("%H:%M:%S")})
+        content = update_var_placeholders(content,vars_file=vars_file)
 
         return content
 
@@ -313,6 +346,7 @@ def update_markdown_file(
         md_file: str,
         bold: str = '',
         auto_break: bool = False,
+        vars_file: pathlib.Path | None = None,
         out_file: str | None = None,
 ) -> str:
     """
@@ -340,7 +374,10 @@ def update_markdown_file(
             content = file.read()
 
         # Call the string-based update function
-        updated_content = update_markdown_from_string(content, bold, auto_break)
+        updated_content = update_markdown_from_string(content=content,
+                                                      bold=bold,
+                                                      auto_break=auto_break,
+                                                      vars_file=vars_file)
 
         # Write updated content to the specified output file
         out_file = out_file or md_file
@@ -351,4 +388,3 @@ def update_markdown_file(
 
     except FileNotFoundError as fnf_error:
         raise FileNotFoundError(f"File '{md_file}' not found.") from fnf_error
-

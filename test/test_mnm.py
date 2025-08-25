@@ -2,24 +2,14 @@
 import pathlib
 import importlib
 import tempfile
-import datetime
-
+import datetime as dt
+import json
 import pytest
-
+import os
 
 from mdfile.csv_to_md import CsvToMarkdown
-from mdfile.to_markdown import ToMarkdown
-from mdfile.md_updater import update_process_inserts,update_file_inserts
-from mdfile.md_updater import  update_markdown_from_string,update_markdown_file
-from mdfile.mdfile import app
-
-from typer.testing import CliRunner
-runner = CliRunner()
-
-
-
-
-
+from mdfile.md_updater import update_process_inserts,update_file_inserts,load_vars
+from mdfile.md_updater import  update_markdown_from_string,update_markdown_file,update_var_placeholders
 
 def file_setup(
                 md_file:str,
@@ -37,22 +27,38 @@ def file_setup(
 
 def test_update_proc_insert():
     content, expected = file_setup("example_proc_insert.md", "example_proc_insert.md")
-    result = update_markdown_from_string(content, "", False)
+    result = update_markdown_from_string(content, bold="", auto_break=False)
     assert result == expected
 
 @pytest.mark.parametrize(
     "template, expected",
     [
         ("{{$version}}", importlib.metadata.version("mdfile")),  # Test for {{$version}}
-        ("{{$date}}", datetime.datetime.now().strftime("%Y-%m-%d")),  # Test for {{$date}}
+        ("{{$date}}", dt.datetime.now().strftime("%Y-%m-%d")),  # Test for {{$date}}
         (       "Version: {{$version}}, Date: {{$date}}",
-                f"Version: {importlib.metadata.version('mdfile')}, Date: {datetime.datetime.now().strftime('%Y-%m-%d')}",
+                f"Version: {importlib.metadata.version('mdfile')}, Date: {dt.datetime.now().strftime('%Y-%m-%d')}",
         ),
     ],
 )
 def test_var_version(template, expected):
     result = update_markdown_from_string(template, "", False)
     assert result == expected
+
+def test_var_with_json_override(tmp_path):
+    # Create a temporary vars.json file
+    json_vars = {"project": "CoolApp", "name": "OverriddenName"}
+    vars_file = tmp_path / "vars.json"
+    vars_file.write_text(json.dumps(json_vars), encoding="utf8")
+
+    template = "Project: {{$project}}, Name: {{$name}}, Date: {{$date}}"
+    result = update_markdown_from_string(template, "", False, vars_file=str(vars_file))
+
+    # Built-in 'date' stays, JSON adds 'project', JSON overrides 'name'
+    expected_date = dt.datetime.now().strftime("%Y-%m-%d")
+    assert f"Project: {json_vars['project']}" in result
+    assert f"Name: {json_vars['name']}" in result
+    assert f"Date: {expected_date}" in result
+
 
 
 
@@ -84,6 +90,7 @@ def test_update_markdown_csv_file():
 
     # Assert that the result matches the expected output
     assert expected_output == result, f"Output did not match:\n{result}"
+
 
 
 
@@ -398,4 +405,46 @@ def test_bad_glob_pattern_error_message():
     assert "```python" not in result or "```python" in markdown_content, "Python code block should not be added for non-matching glob"
 
 
+
+@pytest.mark.parametrize("var_name, should_block", [
+    ("API_KEY", True),       # starts with API_
+    ("MY_API_KEY", True),    # contains _API_
+    ("SERVICE_API", True),   # ends with _API
+    ("APICRED", False),      # normal ENV, should pass
+    ("MYAPI", False),        # normal ENV, should pass
+])
+def test_env_api_block(var_name, should_block):
+    # Temporarily set the ENV variable
+    os.environ[var_name] = "secret_value"
+
+    try:
+        template = f"Value: {{{{$ENV.{var_name}}}}}"
+        result = update_var_placeholders(template, vars_file=None)
+        if should_block:
+            assert result == f"Value: Var ENV.{var_name} blocked."
+        else:
+            assert result == f"Value: secret_value"
+    finally:
+        del os.environ[var_name]
+
+
+
+def test_load_vars_non_dict(tmp_path):
+    # Create a JSON file whose top-level is a list, not a dict
+    file_path = tmp_path / "bad_dict.json"
+    file_path.write_text(json.dumps([1, 2, 3]), encoding="utf8")
+
+    with pytest.raises(ValueError) as excinfo:
+        load_vars(str(file_path))
+    assert "must contain an object at top level" in str(excinfo.value)
+
+
+def test_load_vars_invalid_json(tmp_path):
+    # Create a JSON file with invalid content
+    file_path = tmp_path / "invalid.json"
+    file_path.write_text("{ invalid json }", encoding="utf8")
+
+    with pytest.raises(ValueError) as excinfo:
+        load_vars(str(file_path))
+    assert "Invalid JSON" in str(excinfo.value)
 

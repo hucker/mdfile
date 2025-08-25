@@ -31,6 +31,7 @@ Usage example:
     # Via CLI
     # python mdfile.py report.md --bold "Important,Critical"
 """
+import json
 import pathlib
 from importlib.metadata import version
 from typing import Optional
@@ -56,6 +57,7 @@ def handle_update_markdown_file(
         bold: str = '',
         auto_break: bool = False,
         out_file: str | None = None,
+        vars_file: pathlib.Path | None = None,
 ) -> str:
     """
     Wrapper for `update_markdown_file` that integrates with Typer for CLI interaction.
@@ -74,7 +76,8 @@ def handle_update_markdown_file(
         updated_content = update_markdown_file(md_file,
                                                bold,
                                                auto_break,
-                                               out_file
+                                               out_file,
+                                               vars_file,
                                                )
 
         typer.echo(f"File '{md_file}' updated successfully.", err=True)
@@ -107,7 +110,6 @@ context_settings = {
 app = typer.Typer(add_completion=False)
 
 
-
 @app.command()
 def convert(
         file_name: str = typer.Argument(None, help="The file to convert to Markdown"),
@@ -127,7 +129,10 @@ def convert(
             None, "--version", '-v' ,callback=version_callback, help="Show version and exit"
         ),  # noqa: B008, PLW0613
 
-
+        vars_file: pathlib.Path = typer.Option(
+            None, "--vars", "-v", exists=True, file_okay=True, dir_okay=False,
+            help="Path to JSON file with variable overrides"
+        ),
 ):
 
     # Exits with bad arguments
@@ -139,7 +144,8 @@ def convert(
 
         markdown_text = handle_update_markdown_file(file_name,
                                                     bold=bold_values,
-                                                    auto_break=auto_break)
+                                                    auto_break=auto_break,
+                                                    vars_file=vars_file)
 
         if output:
             with open(output, "w", encoding='utf8') as file:

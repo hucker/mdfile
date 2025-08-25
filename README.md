@@ -173,6 +173,8 @@ Options:
                                   \[default: auto-break]
   --plain                         Output plain markdown without rich
                                   formatting
+  --vars_file   -j                JSON variable lookup file.
+  
   --version     -v                Show version and exit   
   --help                          Show this message and exit.
 ```
@@ -328,6 +330,18 @@ this allows you to have text such as
 To get the text
 
 App **mdfile** version **0.10.0** was created on 1/1/2024
+
+## Environment Substitution
+
+Environment variables may also be inserted into your markdown files using the following notation:
+
+```text
+Root Project Directory = ``{{ENV.PWD}}``
+```
+
+```text
+Root Project Directory = ``/Users/chuck/Projects/mdfile/src/mdfile`
+```
 
 ### UVX
 If you installed `mdfile` as a `uv` tool then you can run `mdfile` from anywhere using 
