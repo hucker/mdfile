@@ -342,6 +342,10 @@ Root Project Directory = ``{{ENV.PWD}}``
 ```text
 Root Project Directory = ``/Users/chuck/Projects/mdfile/src/mdfile`
 ```
+NOTE: `mdfile` aggressively attempts to block publishing API_KEYS into readme documents if you are noticing 
+that ENV_API_KEY is not substituting into your readme it is being blocked.  If you must (which you shouldn't)
+you can give an API KEY a different variable name.  It is likely that won't work since GitHub knows how to
+find the keys by looking at the key itself.
 
 ### UVX
 If you installed `mdfile` as a `uv` tool then you can run `mdfile` from anywhere using 
