@@ -2,36 +2,39 @@ import io
 import re
 import shlex
 import subprocess
+from typing import ClassVar
 from rich.console import Console
 from rich.panel import Panel
 
-class ProcessReplacer:
+
+class BaseProcessReplacer:
     """
-    Replace {{process <command>}} placeholders with the output of the command.
-    Uses Rich for formatting output. Handles timeouts gracefully.
+    Base class for replacing process placeholders with command output.
+    Subclasses define the regex pattern and block formatting.
     """
 
-    # Regex pattern for process placeholders
-    PLACEHOLDER_PATTERN: re.Pattern[str] = re.compile(
-        r"\{\{process\s+(.+?)\}\}", re.DOTALL
-    )
+    PLACEHOLDER_PATTERN: ClassVar[re.Pattern[str]]
 
     def __init__(self, timeout_sec: int = 30) -> None:
-        """
-        Args:
-            timeout_sec (int): Timeout in seconds for command execution.
-        """
         self.timeout_sec = timeout_sec
+
+    def _format_success(self, command: str, output: str) -> str:
+        """
+        Format replacement block on successful command execution.
+        Subclasses override this.
+        """
+        raise NotImplementedError
+
+    def _format_timeout(self, command: str, output: str) -> str:
+        """
+        Format replacement block when command times out.
+        Subclasses override this.
+        """
+        raise NotImplementedError
 
     def update(self, content: str) -> str:
         """
-        Replace all process placeholders in the content with command output.
-
-        Args:
-            content (str): Markdown content containing {{process <command>}}.
-
-        Returns:
-            str: Updated content with process output inserted.
+        Replace all process placeholders in content with command output.
         """
         matches = list(self.PLACEHOLDER_PATTERN.finditer(content))
         new_content = content
@@ -51,93 +54,53 @@ class ProcessReplacer:
                     shell=False,
                     text=True,
                     check=True,
-                    timeout=self.timeout_sec
+                    timeout=self.timeout_sec,
                 )
-
                 console.print(result.stdout.strip())
                 output = string_io.getvalue()
-                new_block = f"```text\n{output}```"
+                new_block = self._format_success(command, output)
 
             except subprocess.TimeoutExpired:
                 console.print(
                     Panel.fit(
-                        f"Command execution timed out after {self.timeout_sec} seconds",
+                        f"Command execution timed out after "
+                        f"{self.timeout_sec} seconds",
                         title="Timeout Error",
-                        style="bold red"
+                        style="bold red",
                     )
                 )
                 output = string_io.getvalue()
-                new_block = f"<!--process {command}-->\n{output}\n<!--process end-->"
+                new_block = self._format_timeout(command, output)
 
             new_content = new_content.replace(old_block, new_block, 1)
 
         return new_content
 
 
-class ProcessBlockReplacer:
-    """
-    Replace <!--process <command>--> ... <!--process end--> blocks
-    with the output of the command, formatted with Rich.
-    """
+class ProcessReplacer(BaseProcessReplacer):
+    """Replace {{process <command>}} placeholders with command output."""
 
-    # Regex pattern for process insert blocks
-    PLACEHOLDER_PATTERN: re.Pattern[str] = re.compile(
-        r'^<!--process\s+(.+?)-->(.*?)<!--process end-->', re.DOTALL | re.MULTILINE
+    PLACEHOLDER_PATTERN = re.compile(r"\{\{process\s+(.+?)\}\}", re.DOTALL)
+
+    def _format_success(self, command: str, output: str) -> str:
+        return f"```text\n{output}```"
+
+    def _format_timeout(self, command: str, output: str) -> str:
+        return f"<!--process {command}-->\n{output}\n<!--process end-->"
+
+
+class ProcessBlockReplacer(BaseProcessReplacer):
+    """Replace <!--process ...--> blocks with command output."""
+
+    PLACEHOLDER_PATTERN = re.compile(
+        r"^<!--process\s+(.+?)-->(.*?)<!--process end-->",
+        re.DOTALL | re.MULTILINE,
     )
 
-    def __init__(self, timeout_sec: int = 30) -> None:
-        """
-        Args:
-            timeout_sec (int): Timeout in seconds for command execution.
-        """
-        self.timeout_sec = timeout_sec
+    def _format_success(self, command: str, output: str) -> str:
+        return (
+            f"<!--process {command}-->\n```text\n{output}\n```\n<!--process end-->"
+        )
 
-    def update(self, content: str) -> str:
-        """
-        Replace all process insert blocks in the content with command output.
-
-        Args:
-            content (str): Markdown content containing process insert blocks.
-
-        Returns:
-            str: Updated content with command output inserted.
-        """
-        matches = list(self.PLACEHOLDER_PATTERN.finditer(content))
-        new_content = content
-
-        for match in matches:
-            command = match.group(1).strip()
-            old_block = match.group(0)
-
-            string_io = io.StringIO()
-            console = Console(file=string_io, width=100, highlight=False)
-
-            try:
-                args = shlex.split(command)
-                result = subprocess.run(
-                    args,
-                    capture_output=True,
-                    shell=False,
-                    text=True,
-                    check=True,
-                    timeout=self.timeout_sec
-                )
-
-                console.print(result.stdout.strip())
-                output = string_io.getvalue()
-                new_block = f"<!--process {command}-->\n```text\n{output}\n```\n<!--process end-->"
-
-            except subprocess.TimeoutExpired:
-                console.print(
-                    Panel.fit(
-                        f"Command execution timed out after {self.timeout_sec} seconds",
-                        title="Timeout Error",
-                        style="bold red"
-                    )
-                )
-                output = string_io.getvalue()
-                new_block = f"<!--process {command}-->\n{output}\n<!--process end-->"
-
-            new_content = new_content.replace(old_block, new_block, 1)
-
-        return new_content
+    def _format_timeout(self, command: str, output: str) -> str:
+        return f"<!--process {command}-->\n{output}\n<!--process end-->"
