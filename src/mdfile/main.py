@@ -33,15 +33,17 @@ Usage example:
 """
 import json
 import pathlib
+import tomllib
 from importlib.metadata import version
-from typing import Optional
+from typing import Optional,Any
+
 
 import typer
 from rich.console import Console
 from rich.markdown import Markdown
 from typer import Typer
 
-from .md_updater import update_markdown_file
+from md_updater import update_markdown_file
 
 __app_name__ = "mdfile"
 __version__ = version(__app_name__)
@@ -87,7 +89,12 @@ def handle_update_markdown_file(
     return updated_content
 
 
-def ensure_valid_args(file_name, out_file, bold_values, auto_break, plain, version):
+def ensure_valid_args(file_name,
+                      output,
+                      bold_values,
+                      auto_break,
+                      plain,
+                      vars_file:str|None):
     """
     Validate command arguments and exit with an error message if invalid.
 
@@ -106,6 +113,76 @@ def ensure_valid_args(file_name, out_file, bold_values, auto_break, plain, versi
 context_settings = {
     "help_option_names": ["-h", "--help"],
 }
+
+def find_pyproject(start: pathlib.Path | None = None,
+                   default_name:str = "pyproject.toml",
+                   base_path:pathlib.Path|None = None) -> pathlib.Path | None:
+    """Walk upward from start to find first pyproject.toml."""
+    if start is None:
+        start = base_path or pathlib.Path.cwd()
+    for path in [start] + list(start.parents):
+        candidate = path / default_name
+        if candidate.exists():
+            return candidate
+    return None
+
+def load_mdfile_config(pyproject_dir: pathlib.Path | None = None,
+                       base_path: pathlib.Path | None = None) -> dict[str, Any]:
+    """Load [tool.mdfile] config from given or discovered pyproject.toml."""
+    if pyproject_dir is None:
+        pyproject = find_pyproject(start=pyproject_dir)
+        if pyproject is None:
+            return {}
+
+    with pyproject.open("rb") as f:
+        data = tomllib.load(f)
+
+    return data.get("tool", {}).get("mdfile", {})
+
+DEFAULT_CONFIG = {
+    "file_name": None,
+    "output": None,
+    "bold_values": None,
+    "auto_break": True,
+    "vars_file": None,
+    "plain": False,
+}
+
+
+def merge_cli_toml(
+    *,
+    file_name: str | None = None,
+    output: str | None = None,
+    bold_values: str | None = None,
+    auto_break: bool | None = None,
+    vars_file: pathlib.Path | None = None,
+    plain: bool | None = None,
+    base_path: pathlib.Path | None= None,
+    pyproject_dir: pathlib.Path | None = None,
+) -> dict[str, Any]:
+    """
+    Merge defaults, TOML [tool.mdfile], and CLI arguments.
+
+    CLI arguments override TOML; missing values fall back to defaults.
+    """
+    cfg = DEFAULT_CONFIG.copy()
+    cfg.update(load_mdfile_config(pyproject_dir,base_path=base_path))
+
+    # Override with any CLI-provided values
+    cli_args = {
+        "file_name": file_name,
+        "output": output,
+        "bold_values": bold_values,
+        "auto_break": auto_break,
+        "vars_file": vars_file,
+        "plain": plain,
+    }
+    for key, value in cli_args.items():
+        if value is not None:
+            cfg[key] = value
+
+    return cfg
+
 
 app = typer.Typer(add_completion=False)
 
@@ -126,12 +203,20 @@ def convert(
             False, "--plain", help="Output plain Markdown without rich formatting"
         ),
         version:bool= typer.Option(
-            None, "--version", '-v' ,callback=version_callback, help="Show version and exit"
+            None, "--version", '-V' ,callback=version_callback, help="Show version and exit"
         ),  # noqa: B008, PLW0613
 
         vars_file: pathlib.Path = typer.Option(
             None, "--vars", "-v", exists=True, file_okay=True, dir_okay=False,
             help="Path to JSON file with variable overrides"
+        ),
+        pyproject_dir: Optional[pathlib.Path] = typer.Option(
+            None, "--pyproject_dir","-p",
+            help="Folder where pyproject.toml is located (default: cwd) (will search up tree for pyproject.toml)"
+        ),
+        base_path: Optional[pathlib.Path] = typer.Option(
+            None, "--base_path",
+            help="Path to root of project folder (default: cwd) "
         ),
 ):
 
@@ -140,7 +225,34 @@ def convert(
 
     """Convert a file to Markdown based on its extension."""
     try:
+        # --- Merge CLI/toml CLI wins ---
+        cfg = merge_cli_toml(
+            file_name=file_name,
+            output=output,
+            bold_values=bold_values,
+            auto_break=auto_break,
+            vars_file=vars_file,
+            plain=plain,
+            pyproject_dir=pyproject_dir,
+        )
 
+        # Now validate using final resolved config
+        ensure_valid_args(
+            file_name=cfg["file_name"],
+            output=cfg["output"],
+            bold_values=cfg["bold_values"],
+            auto_break=cfg["auto_break"],
+            plain=cfg["plain"],
+            vars_file=cfg["vars_file"],
+        )
+
+        # Use cfg throughout the rest of the function
+        markdown_text = handle_update_markdown_file(
+            cfg["file_name"],
+            bold=cfg["bold_values"],
+            auto_break=cfg["auto_break"],
+            vars_file=cfg["vars_file"],
+        )
 
         markdown_text = handle_update_markdown_file(file_name,
                                                     bold=bold_values,

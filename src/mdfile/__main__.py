@@ -1,4 +1,4 @@
-from mdfile.mdfile import app
+from mdfile.main import app
 
 if __name__ == "__main__":
     app()

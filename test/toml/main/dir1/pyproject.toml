@@ -1,0 +1,6 @@
+[tool.mdfile]
+output = "output_1.md"
+file_name = "input_1.mdd"
+auto_break = false
+plain = true
+vars_file = "vars_file1.json"

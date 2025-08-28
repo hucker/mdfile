@@ -2,7 +2,7 @@ import importlib
 import pathlib
 
 from typer.testing import CliRunner
-from mdfile.mdfile import app
+from main import app
 
 runner = CliRunner()
 
@@ -174,3 +174,4 @@ def test_missing_filename_error_with_multiple_options():
 
     assert result.exit_code == 1
     assert "Error: Please provide a markdown file to process" in result.stderr
+

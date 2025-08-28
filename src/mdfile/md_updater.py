@@ -9,11 +9,19 @@ from typing import Optional
 from rich.console import Console
 from rich.panel import Panel
 
-from .md_factory import markdown_factory
-from .vars import load_vars
-from .dotted_dict import DottedDict
+from to_md.md_factory import markdown_factory
+from updater.variables import VariableReplacer
+from updater.ignore import IgnoreBlocks
+from updater.process import ProcessReplacer
+from updater.process import ProcessBlockReplacer
+from updater.process import ShellReplacer
+from updater.process import ShellBlockReplacer
+from updater.files import FileBlockInsertReplacer
+from updater.files import FileReplacer
 
-def update_file_inserts(content: str, bold: str, auto_break: bool) -> str:
+from util.dotted_dict import DottedDict
+
+def XXXupdate_file_inserts(content: str, bold: str, auto_break: bool) -> str:
     """
     Replace file insertion placeholders with file contents converted to markdown.
 
@@ -68,7 +76,7 @@ def update_file_inserts(content: str, bold: str, auto_break: bool) -> str:
     return new_content
 
 
-def update_file_placeholders(content: str, bold: Optional[str] = None, auto_break: bool = False) -> str:
+def XXXupdate_file_placeholders(content: str, bold: Optional[str] = None, auto_break: bool = False) -> str:
     """
     Replace {{file file_name.ext}} placeholders with file contents converted to markdown.
     If no files match the given pattern, a warning message is provided in place of the placeholder.
@@ -122,7 +130,7 @@ def update_file_placeholders(content: str, bold: Optional[str] = None, auto_brea
     return new_content
 
 
-def update_process_inserts(content: str, timeout_sec=30) -> str:
+def XXXupdate_process_inserts(content: str, timeout_sec=30) -> str:
     """
     Replace process execution placeholders with command output using Rich for formatting.
 
@@ -184,7 +192,7 @@ def update_process_inserts(content: str, timeout_sec=30) -> str:
     return new_content
 
 
-def update_process_placeholders(content: str, timeout_sec=30) -> str:
+def XXXupdate_process_placeholders(content: str, timeout_sec=30) -> str:
     """
     Replace process execution placeholders with command output using Rich for formatting.
 
@@ -246,7 +254,7 @@ def update_process_placeholders(content: str, timeout_sec=30) -> str:
     return new_content
 
 
-def is_sensitive_api_env(var_name: str) -> bool:
+def XXXis_sensitive_api_env(var_name: str) -> bool:
     """
     Determine if an environment variable name is likely to contain
     an API key or secret, so it can be blocked from output.
@@ -260,7 +268,7 @@ def is_sensitive_api_env(var_name: str) -> bool:
     ]
     return any(pat in var_name_upper for pat in patterns)
 
-def update_var_placeholders(content: str, vars_file: str | None = None) -> str:
+def XXXupdate_var_placeholders(content: str, vars_file: str | None = None) -> str:
     """
     Replace {{$var}} placeholders with values from vars dictionary or environment.
     If a placeholder starts with ENV., it will read from os.environ.
@@ -283,7 +291,7 @@ def update_var_placeholders(content: str, vars_file: str | None = None) -> str:
         var_name: str = match.group(1)
 
         # Block potentially sensitive API keys
-        if is_sensitive_api_env(var_name):
+        if XXXis_sensitive_api_env(var_name):
             return f"Var {var_name} blocked."
 
         # ENV lookup
@@ -306,8 +314,7 @@ def update_markdown_from_string(content: str,
                                 auto_break: bool,
                                 vars_file:pathlib.Path | None=None) -> str:
     """
-    Parse a Markdown string and replace special placeholders with actual file contents
-    or process output.
+    Transform the markdown string with all the class based replacements.
 
     Supported placeholders:
         1. <!--file <glob_pattern>--> : Replaces with the Markdown tables based on file extension
@@ -323,18 +330,36 @@ def update_markdown_from_string(content: str,
         str: The updated Markdown content with placeholders replaced.
     """
     try:
+
+        ignore = IgnoreBlocks()
+
+        # Extract the ignored blocks.  This should go first.
+        content = ignore.extract(content)
+
         # Apply file insertions
-        content = update_file_inserts(content, bold, auto_break)
+        ###content = update_file_inserts(content, bold, auto_break)
+        content = FileBlockInsertReplacer(bold=bold,auto_break=auto_break).update(content)
 
         # Apply file placeholder insertions
-        content = update_file_placeholders(content, bold, auto_break)
+        #content = update_file_placeholders(content, bold, auto_break)
+        content = FileReplacer(bold=bold,auto_break=auto_break).update(content)
 
         # Apply process insertions
-        content = update_process_inserts(content)
+        #content = update_process_inserts(content)
+        content = ProcessBlockReplacer().update(content)
 
-        content = update_process_placeholders(content)
+        #content = update_process_placeholders(content)
+        content = ProcessReplacer().update(content)
 
-        content = update_var_placeholders(content,vars_file=vars_file)
+        content = ShellBlockReplacer().update(content)
+        content = ShellReplacer().update(content)
+
+        #content = update_var_placeholders(content,vars_file=vars_file)
+
+        content = VariableReplacer(vars_file).update(content)
+
+        # Put the ignored blocks back.  This must go after all transforms are complete
+        content = ignore.restore(content)
 
         return content
 

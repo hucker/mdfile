@@ -3,12 +3,29 @@ from typing import Any
 
 class DottedDict(dict):
     """
-    Dictionary that supports dotted key lookup for nested dictionaries.
+    Dictionary that supports dotted key lookup and assignment
+    for nested dictionaries.
 
     Example:
-        data = DottedDict({"foo": {"fum": 42}})
+        data = DottedDict()
+        data["foo.fum"] = 42
         assert data["foo.fum"] == 42
+        assert data["foo"]["fum"] == 42
     """
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        if "." not in key:
+            super().__setitem__(key, value)
+            return
+
+        parts = key.split(".")
+        current: Any = self
+        for part in parts[:-1]:
+            if part not in current or not isinstance(current[part], dict):
+                current[part] = DottedDict()
+            current = current[part]
+
+        current[parts[-1]] = value
 
     def __getitem__(self, key: str) -> Any:
         if "." not in key:
@@ -27,3 +44,5 @@ class DottedDict(dict):
             return self[key]
         except KeyError:
             return default
+
+
