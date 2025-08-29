@@ -1,145 +1,38 @@
-#!/user/bin/env -S uv run --script
+#!/usr/bin/env -S uv run --script
 # /// script
 # dependencies = ["typer","rich","click"]
 # ///
 """
-MarkDown File Manipulation (MNM) - Tools for converting various file formats to Markdown.
+Markdown File Manipulation (MNM) - CLI tool for converting files to Markdown.
 
-This module provides functionality to convert different file types to Markdown format
-for inclusion in documentation, reports, or Markdown-based websites. It supports a variety
-of formats including CSV, JSON, code files with syntax highlighting, and plain text.
+Supports CSV, JSON, code files, plain text, and updating existing Markdown
+with variable replacements and custom formatting.
 
-The intended interface is the command-line through Typer and more specifically to
-be used with `uv run`. The main features include:
-
-1. Automatic file format detection based on file extension
-2. Conversion of CSV files to Markdown tables with customizable formatting
-3. Pretty-printing and syntax highlighting for JSON and code files
-4. Direct inclusion of existing Markdown files
-5. Addition of file timestamps and other metadata
-6. A file-reference system that can update Markdown files by replacing special comment tags
-
-Key components:
-- ToMarkdown: Abstract base class for all converters
-- Various format-specific converter classes (CsvToMarkdown, JsonToMarkdown, etc.)
-- markdown_factory: Factory function to create the appropriate converter
-- Command-line interface for converting files or updating Markdown files with file references
-
-NOTE: This module is SUPPOSED to be a single file so it is easy to use as a tool with uv.
-
-Usage example:
-    # Via CLI
-    # python mdfile.py report.md --bold "Important,Critical"
+Configuration sources (lowest → highest precedence):
+1. Defaults
+2. mdfile.json
+3. pyproject.toml ([tool.mdfile] section)
+4. Environment variables (MD_FILE_*)
+5. CLI arguments
 """
+
 import json
+import os
 import pathlib
 import tomllib
 from importlib.metadata import version
-from typing import Optional,Any
-
+from typing import Optional, Any, Dict
 
 import typer
 from rich.console import Console
 from rich.markdown import Markdown
-from typer import Typer
 
 from md_updater import update_markdown_file
 
 __app_name__ = "mdfile"
 __version__ = version(__app_name__)
 
-def version_callback(value: bool):
-    """Callback for typer."""
-    if value:
-        typer.echo(f"{__app_name__} v{__version__}")
-        raise typer.Exit()
-
-def handle_update_markdown_file(
-        md_file: str,
-        bold: str = '',
-        auto_break: bool = False,
-        out_file: str | None = None,
-        vars_file: pathlib.Path | None = None,
-) -> str:
-    """
-    Wrapper for `update_markdown_file` that integrates with Typer for CLI interaction.
-
-    Args:
-        md_file (str): Path to the Markdown file to be read.
-        bold (str, optional): String to be added in bold text format. Defaults to an empty string.
-        auto_break (bool): If True, applies automatic line breaking within the content.
-        out_file (str, optional): File to save the updated content. Defaults to overwriting
-            the input file.
-
-    Returns:
-        None
-    """
-    try:
-        updated_content = update_markdown_file(md_file,
-                                               bold,
-                                               auto_break,
-                                               out_file,
-                                               vars_file,
-                                               )
-
-        typer.echo(f"File '{md_file}' updated successfully.", err=True)
-    except FileNotFoundError as e:
-        typer.echo(f"Error: {e}", err=True)
-
-    return updated_content
-
-
-def ensure_valid_args(file_name,
-                      output,
-                      bold_values,
-                      auto_break,
-                      plain,
-                      vars_file:str|None):
-    """
-    Validate command arguments and exit with an error message if invalid.
-
-    Checks for required arguments and file existence, exiting with code 1
-    if validation fails.
-    """
-    if file_name is None:
-        typer.echo("Error: Please provide a markdown file to process (use --help)", err=True)
-        raise typer.Exit(code=1)
-
-    if not pathlib.Path(file_name).exists():
-        typer.echo(f"Error: File '{file_name}' does not exist.", err=True)
-        raise typer.Exit(code=1)
-
-# Configure help options through context_settings
-context_settings = {
-    "help_option_names": ["-h", "--help"],
-}
-
-def find_pyproject(start: pathlib.Path | None = None,
-                   default_name:str = "pyproject.toml",
-                   base_path:pathlib.Path|None = None) -> pathlib.Path | None:
-    """Walk upward from start to find first pyproject.toml."""
-    if start is None:
-        start = base_path or pathlib.Path.cwd()
-    for path in [start] + list(start.parents):
-        candidate = path / default_name
-        if candidate.exists():
-            return candidate
-    return None
-
-def load_mdfile_config(pyproject_dir: pathlib.Path | None = None,
-                       base_path: pathlib.Path | None = None) -> dict[str, Any]:
-    """Load [tool.mdfile] config from given or discovered pyproject.toml."""
-    if pyproject_dir is None:
-        pyproject = find_pyproject(start=pyproject_dir)
-        if pyproject is None:
-            return {}
-
-    with pyproject.open("rb") as f:
-        data = tomllib.load(f)
-
-    return data.get("tool", {}).get("mdfile", {})
-
-DEFAULT_CONFIG = {
+DEFAULT_CONFIG: Dict[str, Any] = {
     "file_name": None,
     "output": None,
     "bold_values": None,
@@ -148,8 +41,65 @@ DEFAULT_CONFIG = {
     "plain": False,
 }
 
+app = typer.Typer(add_completion=False)
 
-def merge_cli_toml(
+
+# ----------------------------
+# Helper functions
+# ----------------------------
+
+def version_callback(value: bool):
+    """Show version and exit."""
+    if value:
+        typer.echo(f"{__app_name__} v{__version__}")
+        raise typer.Exit()
+
+
+def load_json_config(path: pathlib.Path | None = None) -> dict[str, Any]:
+    """Load configuration from mdfile.json."""
+    if path is None:
+        path = pathlib.Path.cwd() / "mdfile.json"
+    if not path.exists():
+        return {}
+    with path.open("rt") as f:
+        return json.load(f)
+
+
+def find_pyproject(start: pathlib.Path | None = None,
+                   name: str = "pyproject.toml") -> pathlib.Path | None:
+    """Walk upward from start to find first pyproject.toml."""
+    if start is None:
+        start = pathlib.Path.cwd()
+    for p in [start] + list(start.parents):
+        candidate = p / name
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def load_pyproject_config(pyproject_file: pathlib.Path | None = None) -> dict[str, Any]:
+    """Load [tool.mdfile] from pyproject.toml."""
+    if pyproject_file is None:
+        pyproject_file = find_pyproject()
+        if pyproject_file is None:
+            return {}
+    with pyproject_file.open("rt") as f:
+        data = tomllib.load(f)
+    return data.get("tool", {}).get("mdfile", {})
+
+
+def load_env_config() -> dict[str, Any]:
+    """Load environment variables starting with MD_FILE_ (case-insensitive)."""
+    cfg: dict[str, Any] = {}
+    prefix = "MD_FILE_"
+    for k, v in os.environ.items():
+        if k.upper().startswith(prefix):
+            key = k[len(prefix):].lower()
+            cfg[key] = v
+    return cfg
+
+
+def merge_config(
     *,
     file_name: str | None = None,
     output: str | None = None,
@@ -157,18 +107,19 @@ def merge_cli_toml(
     auto_break: bool | None = None,
     vars_file: pathlib.Path | None = None,
     plain: bool | None = None,
-    base_path: pathlib.Path | None= None,
+    base_path: pathlib.Path | None = None,
     pyproject_dir: pathlib.Path | None = None,
 ) -> dict[str, Any]:
-    """
-    Merge defaults, TOML [tool.mdfile], and CLI arguments.
+    """Merge configuration sources into a single dict.
 
-    CLI arguments override TOML; missing values fall back to defaults.
+    Precedence: CLI > Env > pyproject.toml > mdfile.json > defaults
     """
     cfg = DEFAULT_CONFIG.copy()
-    cfg.update(load_mdfile_config(pyproject_dir,base_path=base_path))
+    cfg |= load_json_config(base_path)
+    cfg |= load_pyproject_config(pyproject_dir)
+    cfg |= load_env_config()
 
-    # Override with any CLI-provided values
+    # CLI overrides
     cli_args = {
         "file_name": file_name,
         "output": output,
@@ -177,109 +128,156 @@ def merge_cli_toml(
         "vars_file": vars_file,
         "plain": plain,
     }
-    for key, value in cli_args.items():
-        if value is not None:
-            cfg[key] = value
-
+    for k, v in cli_args.items():
+        if v is not None:
+            cfg[k] = v
     return cfg
 
 
-app = typer.Typer(add_completion=False)
+def ensure_valid_args(
+    file_name: str | None,
+    output: str | None,
+    bold_values: str | None,
+    auto_break: bool,
+    plain: bool,
+    vars_file: str | None,
+)->bool:
+    """
+    Validate command arguments and exit with an error message if invalid.
 
+    Ensures required arguments are provided and files exist. Also prevents
+    dangerous overwrites where output file is the same as input file.
+    """
+    hlp = '(--help for details'
+    if file_name is None:
+        typer.echo(f"Error: Please provide a markdown file to process {hlp}", err=True)
+        raise typer.Exit(code=1)
+
+    file_path = pathlib.Path(file_name)
+    if not file_path.exists():
+        typer.echo(f"Error: File '{file_name}' does not exist.", err=True)
+        raise typer.Exit(code=1)
+
+    if output is not None:
+        output_path = pathlib.Path(output)
+        if output_path.resolve() == file_path.resolve():
+            typer.echo(msg = f"Error: '{output}' and input '{file_name}' must differ.{hlp}", err=True)
+            raise typer.Exit(code=1)
+
+    return True
+
+def handle_update_markdown_file(
+        cfg: dict[str, Any],
+        file_name: str | None = None,
+        bold: str | None = None,
+        auto_break: bool | None = None,
+        vars_file: pathlib.Path | None = None,
+) -> str:
+    """Wrapper to call update_markdown_file using merged cfg."""
+    file_name = file_name or cfg.get("file_name")
+    bold = bold or cfg.get("bold_values")
+    auto_break = auto_break if auto_break is not None else cfg.get("auto_break", False)
+    vars_file = vars_file or cfg.get("vars_file")
+
+    try:
+        updated_content = update_markdown_file(file_name,
+                                               bold,
+                                               auto_break,
+                                               cfg.get("output"),
+                                               vars_file)
+        typer.echo(f"File '{file_name}' updated successfully.", err=True)
+    except FileNotFoundError as e:
+        typer.echo(f"Error: {e}", err=True)
+        updated_content = ""
+    return updated_content
+
+
+# ----------------------------
+# CLI command
+# ----------------------------
 
 @app.command()
 def convert(
-        file_name: str = typer.Argument(None, help="The file to convert to Markdown"),
-        output: Optional[str] = typer.Option(
-            None, "--output", "-o", help="Output file (if not specified, prints to stdout)"
-        ),
-        bold_values: Optional[str] = typer.Option(
-            None, "--bold", "-b", help="Comma-separated values to make bold (for CSV files)"
-        ),
-        auto_break: Optional[bool] = typer.Option(
-            True, "--auto-break/--no-auto-break", help="Disable automatic line breaks in CSV headers"
-        ),
-        plain: bool = typer.Option(
-            False, "--plain", help="Output plain Markdown without rich formatting"
-        ),
-        version:bool= typer.Option(
-            None, "--version", '-V' ,callback=version_callback, help="Show version and exit"
-        ),  # noqa: B008, PLW0613
-
-        vars_file: pathlib.Path = typer.Option(
-            None, "--vars", "-v", exists=True, file_okay=True, dir_okay=False,
-            help="Path to JSON file with variable overrides"
-        ),
-        pyproject_dir: Optional[pathlib.Path] = typer.Option(
-            None, "--pyproject_dir","-p",
-            help="Folder where pyproject.toml is located (default: cwd) (will search up tree for pyproject.toml)"
-        ),
-        base_path: Optional[pathlib.Path] = typer.Option(
-            None, "--base_path",
-            help="Path to root of project folder (default: cwd) "
-        ),
+    file_name: str = typer.Argument(
+        None,
+        help="The file to convert to Markdown (required unless specified in config)"
+    ),
+    output: Optional[str] = typer.Option(
+        None,
+        "--output", "-o",
+        help="Output file. If not specified, prints to stdout or overwrites input file"
+    ),
+    bold_values: Optional[str] = typer.Option(
+        None,
+        "--bold", "-b",
+        help="Comma-separated values to make bold (e.g., CSV headers)"
+    ),
+    auto_break: Optional[bool] = typer.Option(
+        True,
+        "--auto-break/--no-auto-break",
+        help="Enable or disable automatic line breaks in CSV headers or long lines"
+    ),
+    plain: bool = typer.Option(
+        False,
+        "--plain",
+        help="Output plain Markdown without Rich formatting"
+    ),
+    version: bool = typer.Option(
+        False,
+        "--version", "-V",
+        callback=version_callback,
+        help="Show the application version and exit"
+    ),
+    vars_file: pathlib.Path | None = typer.Option(
+        None,
+        "--vars", "-v",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        help="Path to JSON file with variable overrides"
+    ),
+    pyproject_dir: pathlib.Path | None = typer.Option(
+        None,
+        "--pyproject_dir", "-p",
+        help="Directory to start searching for pyproject.toml (default: cwd, searches up the tree)"
+    ),
+    base_path: pathlib.Path | None = typer.Option(
+        None,
+        "--base_path",
+        help="Root folder for project, used for locating JSON config and relative paths (default: cwd)"
+    )
 ):
+    """Convert a file to Markdown based on its extension, using merged configuration."""
 
-    # Exits with bad arguments
-    ensure_valid_args(file_name,output,bold_values,auto_break,plain,version)
+    cfg = merge_config(
+        file_name=file_name,
+        output=output,
+        bold_values=bold_values,
+        auto_break=auto_break,
+        vars_file=vars_file,
+        plain=plain,
+        base_path=base_path,
+        pyproject_dir=pyproject_dir,
+    )
 
-    """Convert a file to Markdown based on its extension."""
-    try:
-        # --- Merge CLI/toml CLI wins ---
-        cfg = merge_cli_toml(
-            file_name=file_name,
-            output=output,
-            bold_values=bold_values,
-            auto_break=auto_break,
-            vars_file=vars_file,
-            plain=plain,
-            pyproject_dir=pyproject_dir,
-        )
+    ensure_valid_args(cfg)
+    markdown_text = handle_update_markdown_file(cfg)
 
-        # Now validate using final resolved config
-        ensure_valid_args(
-            file_name=cfg["file_name"],
-            output=cfg["output"],
-            bold_values=cfg["bold_values"],
-            auto_break=cfg["auto_break"],
-            plain=cfg["plain"],
-            vars_file=cfg["vars_file"],
-        )
-
-        # Use cfg throughout the rest of the function
-        markdown_text = handle_update_markdown_file(
-            cfg["file_name"],
-            bold=cfg["bold_values"],
-            auto_break=cfg["auto_break"],
-            vars_file=cfg["vars_file"],
-        )
-
-        markdown_text = handle_update_markdown_file(file_name,
-                                                    bold=bold_values,
-                                                    auto_break=auto_break,
-                                                    vars_file=vars_file)
-
-        if output:
-            with open(output, "w", encoding='utf8') as file:
-                file.write(markdown_text)
-            typer.echo(f"Markdown written to {output}", err=True)
-        else:
-            if markdown_text:
-                if not plain:
-                    # Use Rich to display formatted markdown
-                    console = Console()
-                    md = Markdown(markdown_text)
-                    console.print(md)
-                else:
-                    # Output plain markdown
-                    typer.echo(markdown_text)
-
+    # Output
+    out_file = cfg.get("output")
+    if out_file:
+        pathlib.Path(out_file).write_text(markdown_text, encoding="utf8")
+        typer.echo(f"Markdown written to {out_file}", err=True)
+    else:
+        if markdown_text:
+            if not cfg.get("plain"):
+                console = Console()
+                md = Markdown(markdown_text)
+                console.print(md)
             else:
-                typer.echo("An Error Occurred", err=True)
-
-    except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
+                typer.echo(markdown_text)
+        else:
+            typer.echo("An error occurred", err=True)
 
 
 if __name__ == "__main__":
