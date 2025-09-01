@@ -1,104 +1,117 @@
-import json
+import datetime as dt
+import importlib.metadata
 import os
 import re
-import datetime as dt
-from importlib.metadata import version
+
+
+class PackageAccessor:
+    """Accessor for a specific package's metadata."""
+
+    def __init__(self, package: str) -> None:
+        self._package: str = package
+        self._pkg_meta: dict[str, str] | None = None
+
+    def _load_metadata(self) -> None:
+        if self._pkg_meta is None:
+            try:
+                self._pkg_meta = dict(importlib.metadata.metadata(self._package))
+            except importlib.metadata.PackageNotFoundError:
+                self._pkg_meta = {}
+
+    def __getattr__(self, field: str) -> str:
+        self._load_metadata()
+        key: str = field.replace("_", "-")
+        if not self._pkg_meta:
+            return ""
+        all_vals = importlib.metadata.metadata(self._package).get_all(key)
+        if all_vals:
+            return ", ".join(all_vals)
+        return self._pkg_meta.get(key, "")
+
+    @property
+    def table(self) -> str:
+        """Return Markdown table of all non-empty metadata fields alphabetically."""
+        self._load_metadata()
+        if not self._pkg_meta:
+            return "| Field | Value |\n|-------|-------|\n| (none) | |"
+
+        rows: list[str] = []
+        for key in sorted(self._pkg_meta.keys(), key=str.lower):
+            field_name: str = key.replace("-", "_")
+            value: str = getattr(self, field_name)
+            if value:
+                rows.append(f"| {field_name} | {value} |")
+
+        header: str = "| Field | Value |\n|-------|-------|"
+        return "\n".join([header] + rows)
+
 
 class VariableReplacer:
-    """
-    Replace {{$var}} placeholders with values from a variables dictionary
-    or environment. If a placeholder starts with ENV., it will read from
-    os.environ. Sensitive API keys are blocked.
-    """
+    """Replace {{$var}} placeholders with vars, environment, or package metadata."""
 
-    def __init__(self, vars_file: str | None = None) -> None:
-        """
-        Initialize the replacer with optional JSON file for variables.
-
-        Args:
-            vars_file (str | None): Path to JSON file with variables.
-        """
-        self.vars = self._load_vars(vars_file)
-
-    def _load_vars(self, vars_file: str|None = None) -> dict[str, str]:
-
-        """Load vars from JSON file or return empty dict."""
-        base_vars: dict[str, str] = {
-            "version": version("mdfile"),
-            "name": "mdfile",
+    def __init__(self, extra_vars: dict[str, str] | None = None) -> None:
+        """Initialize with default date/time vars and optional extra variables."""
+        self.vars: dict[str, str] = {
             "date": dt.datetime.now().strftime("%Y-%m-%d"),
             "time": dt.datetime.now().strftime("%H:%M:%S"),
         }
 
-        if vars_file is None:
-            return base_vars
-        with open(vars_file, "r", encoding="utf-8") as f:
-            json_vars = json.load(f)
-            return base_vars | json_vars
+        if extra_vars is not None:
+            self.vars.update(extra_vars)
+
+        # Dictionary of PackageAccessor objects for caching
+        self._packages: dict[str, PackageAccessor] = {}
+
+    def _get_package_accessor(self, package: str) -> PackageAccessor:
+        """Return cached PackageAccessor for package, create if needed."""
+        if package not in self._packages:
+            self._packages[package] = PackageAccessor(package)
+        return self._packages[package]
 
     @property
     def PLACEHOLDER_PATTERN(self) -> re.Pattern[str]:
-        """
-        Matches {{$var}} placeholders in the content, allowing optional spaces.
-
-        Details:
-            \{\{\s*\$            : literal opening {{ with optional whitespace
-            ([a-zA-Z][a-zA-Z0-9_.]*) : capture group for variable name
-                                         - must start with a letter
-                                         - can contain letters, digits, underscores, or dots
-            \s*\}\}              : optional whitespace before closing }}
-
-        Example matches:
-            {{$USER}}          -> captures 'USER'
-            {{ $USER }}        -> captures 'USER'
-            {{   $ENV.PATH  }} -> captures 'ENV.PATH'
-
-        This ensures we only capture well-formed variable placeholders
-        while allowing human-friendly spacing.
-        """
         return re.compile(r'\{\{\s*\$([a-zA-Z][a-zA-Z0-9_.]*)\s*\}\}')
 
     def update(self, content: str) -> str:
-        """
-        Replace all {{$var}} placeholders in content.
+        """Replace all {{$var}} placeholders in the content."""
 
-        Args:
-            content (str): Text containing {{$var}} placeholders.
-
-        Returns:
-            str: Updated content with placeholders replaced.
-        """
         def replacer(match: re.Match[str]) -> str:
             var_name: str = match.group(1)
 
-            # Block potentially sensitive API keys
+            # Block sensitive keys
             if self._is_sensitive(var_name):
                 return f"ERROR: Variable {var_name} blocked."
 
             # ENV lookup
             if var_name.startswith("ENV."):
-                env_key = var_name[4:]
+                env_key: str = var_name[4:]
                 return os.environ.get(env_key, f"(ERROR: Variable `{var_name}` not found)")
+
+            # meta.<package>.<field> lookup
+            if var_name.startswith("meta."):
+                parts: list[str] = var_name.split(".")
+                if len(parts)==2:
+                    package='mdfile'
+                    field= parts[1]
+                elif len(parts)==3:
+                    package, field = parts[1], parts[2]
+                elif len(parts) != 3:
+                    return f"(ERROR: Invalid meta syntax '{var_name}', must be meta.<package>.<field>)"
+                accessor: PackageAccessor = self._get_package_accessor(package)
+                return str(getattr(accessor, field))
 
             # vars dict lookup
             if var_name in self.vars:
                 return str(self.vars[var_name])
 
-            # fallback
             return f"(ERROR: Variable `{var_name}` not found)"
 
         return self.PLACEHOLDER_PATTERN.sub(replacer, content)
 
     @staticmethod
     def _is_sensitive(var_name: str) -> bool:
-        """
-        Determine if an environment variable name is likely to contain
-        an API key or secret, so it can be blocked from output.
-        """
-        var_name_upper = var_name.upper()
-        # Block if starts with API_, contains _API_, ends with _API,
-        # or contains common secret/key/token patterns
-        patterns = [
+        var_name_upper: str = var_name.upper()
+        patterns: list[str] = [
             "API_", "_API_", "_API",
             "_SECRET", "SECRET_", "_TOKEN", "TOKEN_", "_KEY", "KEY_"
         ]

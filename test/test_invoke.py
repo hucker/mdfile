@@ -158,7 +158,7 @@ def test_nonexistent_file_error():
 
 def test_missing_filename_error():
     """Test that an error is raised when no filename is provided."""
-    result = runner.invoke(app, ["--bold", "Value1,Value2"])
+    result = runner.invoke(app, ["--no_json"])
 
     assert result.exit_code == 1
     assert "Error: Please provide a markdown file to process" in result.stderr
@@ -167,7 +167,6 @@ def test_missing_filename_error():
 def test_missing_filename_error_with_multiple_options():
     """Test that an error is raised when no filename is provided but multiple options are used."""
     result = runner.invoke(app, [
-        "--bold", "Value1,Value2",
         "--output", "output.md",
         "--plain"
     ])

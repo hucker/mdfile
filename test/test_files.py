@@ -1,8 +1,8 @@
 import pytest
 import pathlib
 import tempfile
-from mdfile.md_updater import update_markdown_from_string,update_markdown_file
-from mdfile.updater.files import FileReplacer,FileBlockInsertReplacer
+from md_updater import update_markdown_from_string,update_markdown_file
+from updater.files import FileReplacer,FileBlockInsertReplacer
 
 def file_setup(
                 md_file:str,

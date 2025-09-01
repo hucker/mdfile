@@ -11,10 +11,9 @@ import pathlib
 import re
 from abc import ABC, abstractmethod
 from typing import ClassVar
-from mdfile.to_md.md_factory import markdown_factory
+from to_md.md_factory import markdown_factory
 
-
-class BaseFileReplacer(ABC):
+class BaseReplacer(ABC):
     """
     Base class for replacing file placeholders or blocks with markdown content.
 
@@ -26,7 +25,7 @@ class BaseFileReplacer(ABC):
 
     PLACEHOLDER_PATTERN: ClassVar[re.Pattern[str]]
 
-    def __init__(self, bold: str | None = None, auto_break: bool = False) -> None:
+    def __init__(self, bold: str | None = None, auto_break: bool = False,cfg:dict[str,str]=None) -> None:
         """
         Initialize a base file replacer.
 
@@ -34,6 +33,7 @@ class BaseFileReplacer(ABC):
             bold (str | None): Comma-separated values that should be bolded.
             auto_break (bool): Whether to automatically wrap long lines.
         """
+        self.cfg = {} or cfg
         self.bold_vals: list[str] = bold.split(",") if bold else []
         self.auto_break: bool = auto_break
 
@@ -63,6 +63,16 @@ class BaseFileReplacer(ABC):
             str: Formatted replacement block indicating failure.
         """
         ...
+
+    def validate(self,cfg:dict|None=None):
+        """
+        Validate the configuration for the updater.
+
+        It is expected that more complex replacers will override this method.
+        """
+        if not cfg:
+            return True
+        return True
 
     def update(self, content: str) -> str:
         """
@@ -105,7 +115,7 @@ class BaseFileReplacer(ABC):
         return new_content
 
 
-class FileReplacer(BaseFileReplacer):
+class FileReplacer(BaseReplacer):
     """
     Replace {{file ...}} placeholders with file contents.
 
@@ -142,7 +152,7 @@ class FileReplacer(BaseFileReplacer):
         return f"**Warning:** No files found matching the pattern '{pattern}'."
 
 
-class FileBlockInsertReplacer(BaseFileReplacer):
+class FileBlockInsertReplacer(BaseReplacer):
     """
     Replace <!--file ...--> ... <!--file end--> blocks with file contents.
 

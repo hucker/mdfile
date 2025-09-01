@@ -1,318 +1,32 @@
-import io
-import os
 import pathlib
-import re
-import shlex
-import subprocess
-from typing import Optional
 
-from rich.console import Console
-from rich.panel import Panel
 
-from to_md.md_factory import markdown_factory
 from updater.variables import VariableReplacer
 from updater.ignore import IgnoreBlocks
-from updater.process import ProcessReplacer
+from updater.process import BaseProcessReplacer, ProcessReplacer
 from updater.process import ProcessBlockReplacer
 from updater.process import ShellReplacer
 from updater.process import ShellBlockReplacer
 from updater.files import FileBlockInsertReplacer
 from updater.files import FileReplacer
 
-from util.dotted_dict import DottedDict
 
-def XXXupdate_file_inserts(content: str, bold: str, auto_break: bool) -> str:
-    """
-    Replace file insertion placeholders with file contents converted to markdown.
 
-    Args:
-        content (str): The Markdown content as a string.
-        bold (str): Comma-separated values to bold.
-        auto_break (bool): Whether to auto-wrap content.
 
-    Returns:
-        str: Updated content with file placeholders replaced.
-    """
-
-    # Regex to find <!--file ...--> blocks
-    file_pattern = r'<!--file\s+(.+?)-->(.*?)<!--file end-->'
-    file_matches = re.finditer(file_pattern, content, re.DOTALL)
-    file_matches = list(file_matches)
-
-    new_content = content
-
-    # Process file insertions
-    for match in file_matches:
-        # Extract options for processing
-        kwargs = {
-            'bold_vals': bold.split(",") if bold else [],
-            'auto_break': auto_break,
-        }
-
-        glob_pattern = match.group(1).strip()  # Extract the glob pattern
-        old_block = match.group(0)  # Original block
-
-        # Get all matching files using pathlib
-        matching_files = list(pathlib.Path().glob(glob_pattern))
-
-        # Generate Markdown for each matching file
-        if matching_files:
-            markdown_parts = []
-            for file_path in matching_files:
-                file_name = str(file_path)
-                md_gen = markdown_factory(file_name, **kwargs)
-                markdown_text = md_gen.to_full_markdown()
-                markdown_parts.append(markdown_text)
-
-            # Join all markdown parts with a separator
-            all_markdown = "\n\n".join(markdown_parts)
-            new_block = f"<!--file {glob_pattern}-->\n{all_markdown}\n<!--file end-->"
-        else:
-            # No files found - add a comment indicating that
-            new_block = f"<!--file {glob_pattern}-->\n<!-- No files found matching pattern '{glob_pattern}' -->\n<!--file end-->"
-
-        new_content = new_content.replace(old_block, new_block, 1)
-
-    return new_content
-
-
-def XXXupdate_file_placeholders(content: str, bold: Optional[str] = None, auto_break: bool = False) -> str:
-    """
-    Replace {{file file_name.ext}} placeholders with file contents converted to markdown.
-    If no files match the given pattern, a warning message is provided in place of the placeholder.
-
-    Args:
-        content (str): The Markdown content containing file placeholders.
-        bold (Optional[str]): Comma-separated values to bold.
-        auto_break (bool): Whether to auto-wrap content.
-
-    Returns:
-        str: Updated content with file placeholders replaced, or warnings if no files are found.
-    """
-    # Regex to find {{file file_name.ext}} placeholders
-    placeholder_pattern = r"\{\{file\s+(.+?)\}\}"
-    placeholders = re.finditer(placeholder_pattern, content)
-
-    new_content = content
-
-    # Process each file placeholder
-    for placeholder in placeholders:
-        file_pattern = placeholder.group(1).strip()  # Extract file pattern
-        full_placeholder = placeholder.group(0)  # The complete `{{file ...}}` block
-
-        # Prepare options for file processing
-        kwargs = {
-            'bold_vals': bold.split(",") if bold else [],
-            'auto_break': auto_break,
-        }
-
-        # Get matching files based on the pattern
-        matching_files = list(pathlib.Path().glob(file_pattern))
-
-        if matching_files:
-            # Process found files and convert them to markdown
-            markdown_parts = []
-            for file_path in matching_files:
-                file_name = str(file_path)
-                md_gen = markdown_factory(file_name, **kwargs)  # Use existing markdown factory
-                markdown_text = md_gen.to_full_markdown()  # Convert to full markdown
-                markdown_parts.append(markdown_text)
-
-            # Concatenate all processed markdown parts
-            all_markdown = "\n\n".join(markdown_parts)
-        else:
-            # Generate a warning message if no files are found
-            all_markdown = f"**Warning:** No files found matching the pattern '{file_pattern}'."
-
-        # Replace the placeholder with the generated markdown or warning message
-        new_content = new_content.replace(full_placeholder, all_markdown, 1)
-
-    return new_content
-
-
-def XXXupdate_process_inserts(content: str, timeout_sec=30) -> str:
-    """
-    Replace process execution placeholders with command output using Rich for formatting.
-
-    Args:
-        content (str): The Markdown content as a string.
-        timeout_sec (int): Timeout in seconds for each process execution. Default is 30 seconds.
-
-    Returns:
-        str: Updated content with process placeholders replaced with command output.
-    """
-
-    # Process pattern handling
-    proc_pattern = r'^<!--process\s+(.+?)-->(.*?)<!--process end-->'
-    proc_matches = re.finditer(proc_pattern, content, re.DOTALL)
-    proc_matches = list(proc_matches)
-
-    new_content = content
-
-    # Process command executions
-    for match in proc_matches:
-        command = match.group(1).strip()  # Extract the command
-        old_block = match.group(0)  # Original block
-
-        # Create a string buffer to capture Rich output
-        string_io = io.StringIO()
-        console = Console(file=string_io, width=100, highlight=False)
-
-        try:
-            # Execute the command and capture output
-            args = shlex.split(command)
-            result = subprocess.run(
-                args,
-                capture_output=True,
-                shell=False,
-                text=True,
-                check=True,
-                timeout=timeout_sec
-            )
-
-            # Format the output using Rich
-            console.print(result.stdout.strip())
-            output = string_io.getvalue()
-
-            # Create new block with command output
-            new_block = f"<!--process {command}-->\n```text\n{output}\n```\n<!--process end-->"
-
-
-        except subprocess.TimeoutExpired:
-            console.print(Panel.fit(
-                f"Command execution timed out after {timeout_sec} seconds",
-                title="Timeout Error",
-                style="bold red"
-            ))
-            output = string_io.getvalue()
-            new_block = f"<!--process {command}-->\n{output}\n<!--process end-->"
-
-        new_content = new_content.replace(old_block, new_block, 1)
-
-    return new_content
-
-
-def XXXupdate_process_placeholders(content: str, timeout_sec=30) -> str:
-    """
-    Replace process execution placeholders with command output using Rich for formatting.
-
-    Args:
-        content (str): The Markdown content as a string.
-        timeout_sec (int): Timeout in seconds for each process execution. Default is 30 seconds.
-
-    Returns:
-        str: Updated content with process placeholders replaced with command output.
-    """
-
-    # Process pattern handling
-    proc_pattern = r"\{\{process\s+(.+?)\}\}"
-    proc_matches = re.finditer(proc_pattern, content, re.DOTALL)
-    proc_matches = list(proc_matches)
-
-    new_content = content
-
-    # Process command executions
-    for match in proc_matches:
-        command = match.group(1).strip()  # Extract the command
-        old_block = match.group(0)  # Original block
-
-        # Create a string buffer to capture Rich output
-        string_io = io.StringIO()
-        console = Console(file=string_io, width=100, highlight=False)
-
-        try:
-            # Execute the command and capture output
-            args = shlex.split(command)
-            result = subprocess.run(
-                args,
-                capture_output=True,
-                shell=False,
-                text=True,
-                check=True,
-                timeout=timeout_sec
-            )
-
-            # Format the output using Rich
-            console.print(result.stdout.strip())
-            output = string_io.getvalue()
-
-            # Create new block with command output
-            new_block = f"```text\n{output}```"
-
-
-        except subprocess.TimeoutExpired:
-            console.print(Panel.fit(
-                f"Command execution timed out after {timeout_sec} seconds",
-                title="Timeout Error",
-                style="bold red"
-            ))
-            output = string_io.getvalue()
-            new_block = f"<!--process {command}-->\n{output}\n<!--process end-->"
-
-        new_content = new_content.replace(old_block, new_block, 1)
-
-    return new_content
-
-
-def XXXis_sensitive_api_env(var_name: str) -> bool:
-    """
-    Determine if an environment variable name is likely to contain
-    an API key or secret, so it can be blocked from output.
-    """
-    var_name_upper = var_name.upper()
-    # Block if starts with API_, contains _API_, ends with _API,
-    # or contains common secret/key/token patterns
-    patterns = [
-        "API_", "_API_", "_API",
-        "_SECRET", "SECRET_", "_TOKEN", "TOKEN_", "_KEY", "KEY_"
-    ]
-    return any(pat in var_name_upper for pat in patterns)
-
-def XXXupdate_var_placeholders(content: str, vars_file: str | None = None) -> str:
-    """
-    Replace {{$var}} placeholders with values from vars dictionary or environment.
-    If a placeholder starts with ENV., it will read from os.environ.
-    If a placeholder is not found, it is replaced with 'Var {var} not found'.
-
-    Args:
-        content (str): Input content containing `{{$var}}` placeholders.
-        vars_file (str | None): Path to JSON file containing variables.
-
-    Returns:
-        str: Updated content with placeholders replaced.
-    """
-    # Load vars from JSON file if provided
-    vars:DottedDict  = load_vars(vars_file)
-
-    # Regex to find {{$var}} placeholders (letters, digits, underscores, or dots)
-    placeholder_pattern = r'\{\{\$([a-zA-Z][a-zA-Z0-9_.]*)\}\}'
-
-    def replacer(match: re.Match) -> str:
-        var_name: str = match.group(1)
-
-        # Block potentially sensitive API keys
-        if XXXis_sensitive_api_env(var_name):
-            return f"Var {var_name} blocked."
-
-        # ENV lookup
-        if var_name.startswith("ENV."):
-            env_key = var_name[4:]
-            return os.environ.get(env_key, f"Var {var_name} not found")
-        # vars dict lookup
-        if var_name in vars:
-            return str(vars[var_name])
-        # fallback
-        return f"Var ENV.{var_name} not found"
-
-    return re.sub(placeholder_pattern, replacer, content)
-
-
-
+CLASSES= (
+    ProcessReplacer,
+    ProcessBlockReplacer,
+    ShellReplacer,
+    ShellBlockReplacer,
+    FileBlockInsertReplacer,
+    FileReplacer,
+    VariableReplacer,
+    )
 
 def update_markdown_from_string(content: str,
                                 bold: str,
                                 auto_break: bool,
-                                vars_file:pathlib.Path | None=None) -> str:
+                                ) -> str:
     """
     Transform the markdown string with all the class based replacements.
 
@@ -337,26 +51,13 @@ def update_markdown_from_string(content: str,
         content = ignore.extract(content)
 
         # Apply file insertions
-        ###content = update_file_inserts(content, bold, auto_break)
         content = FileBlockInsertReplacer(bold=bold,auto_break=auto_break).update(content)
-
-        # Apply file placeholder insertions
-        #content = update_file_placeholders(content, bold, auto_break)
         content = FileReplacer(bold=bold,auto_break=auto_break).update(content)
-
-        # Apply process insertions
-        #content = update_process_inserts(content)
         content = ProcessBlockReplacer().update(content)
-
-        #content = update_process_placeholders(content)
         content = ProcessReplacer().update(content)
-
         content = ShellBlockReplacer().update(content)
         content = ShellReplacer().update(content)
-
-        #content = update_var_placeholders(content,vars_file=vars_file)
-
-        content = VariableReplacer(vars_file).update(content)
+        content = VariableReplacer().update(content)
 
         # Put the ignored blocks back.  This must go after all transforms are complete
         content = ignore.restore(content)
@@ -371,7 +72,6 @@ def update_markdown_file(
         md_file: str,
         bold: str = '',
         auto_break: bool = False,
-        vars_file: pathlib.Path | None = None,
         out_file: str | None = None,
 ) -> str:
     """
@@ -402,7 +102,7 @@ def update_markdown_file(
         updated_content = update_markdown_from_string(content=content,
                                                       bold=bold,
                                                       auto_break=auto_break,
-                                                      vars_file=vars_file)
+                                                      )
 
         # Write updated content to the specified output file
         out_file = out_file or md_file

@@ -1,5 +1,5 @@
 import pytest
-from mdfile.util.dotted_dict import DottedDict  # replace with the actual import
+from util.dotted_dict import DottedDict  # replace with the actual import
 
 @pytest.mark.parametrize(
     "data,key,expected",

@@ -16,6 +16,8 @@ Files used in this project:
 {{process ls -a}}
 
  
+Example Run:
+{{shell python example.py}}
 ```
 
 After running `mdfile`,  you would have where each of the {{}} macros are expanded into the file.
@@ -27,12 +29,19 @@ Check out this function:
 
 ```python
 def hello():
-    print("example")
+    print("hello world")
+    
 ```
 
 Files used in this project:
 ```text
 mdfile.py __init__.py
+```
+
+Example Run:
+```bash
+>> python example.py
+hello world
 ````
 
 `mdfile` is able to convert CSV files to Markdown tables as well as pretty print JSON files. Most

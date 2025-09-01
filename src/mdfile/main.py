@@ -1,7 +1,8 @@
 #!/usr/bin/env -S uv run --script
 # /// script
-# dependencies = ["typer","rich","click"]
+# dependencies = ["typer","rich"]
 # ///
+
 """
 Markdown File Manipulation (MNM) - CLI tool for converting files to Markdown.
 
@@ -16,18 +17,23 @@ Configuration sources (lowest → highest precedence):
 5. CLI arguments
 """
 
+import sys
 import json
 import os
 import pathlib
-import tomllib
 from importlib.metadata import version
 from typing import Optional, Any, Dict
 
 import typer
 from rich.console import Console
 from rich.markdown import Markdown
-
 from md_updater import update_markdown_file
+
+# tomllib fallback for Python 3.10
+if sys.version_info < (3, 11):
+    import tomli as tomllib
+else:
+    import tomllib
 
 __app_name__ = "mdfile"
 __version__ = version(__app_name__)
@@ -77,15 +83,17 @@ def find_pyproject(start: pathlib.Path | None = None,
     return None
 
 
+
 def load_pyproject_config(pyproject_file: pathlib.Path | None = None) -> dict[str, Any]:
     """Load [tool.mdfile] from pyproject.toml."""
     if pyproject_file is None:
         pyproject_file = find_pyproject()
-        if pyproject_file is None:
-            return {}
-    with pyproject_file.open("rt") as f:
+    if pyproject_file is None or not pyproject_file.exists():
+        return {}
+    with pyproject_file.open("rb") as f:
         data = tomllib.load(f)
     return data.get("tool", {}).get("mdfile", {})
+
 
 
 def load_env_config() -> dict[str, Any]:
@@ -99,56 +107,64 @@ def load_env_config() -> dict[str, Any]:
     return cfg
 
 
-def merge_config(
+def merge_config_dicts(
     *,
-    file_name: str | None = None,
-    output: str | None = None,
-    bold_values: str | None = None,
-    auto_break: bool | None = None,
-    vars_file: pathlib.Path | None = None,
-    plain: bool | None = None,
-    base_path: pathlib.Path | None = None,
-    pyproject_dir: pathlib.Path | None = None,
+    cli: dict[str, Any] | None = None,
+    json: dict[str, Any] | None = None,
+    toml: dict[str, Any] | None = None,
+    env: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Merge configuration sources into a single dict.
+    """Merge configuration from named sources.
 
-    Precedence: CLI > Env > pyproject.toml > mdfile.json > defaults
+    Later sources overwrite earlier ones. None values are skipped.
+    Precedence: defaults → json → toml → env → cli
     """
-    cfg = DEFAULT_CONFIG.copy()
-    cfg |= load_json_config(base_path)
-    cfg |= load_pyproject_config(pyproject_dir)
-    cfg |= load_env_config()
+    cfg: dict[str, Any] = DEFAULT_CONFIG.copy()
+    sources = [json, toml, env, cli]
 
-    # CLI overrides
-    cli_args = {
-        "file_name": file_name,
-        "output": output,
-        "bold_values": bold_values,
-        "auto_break": auto_break,
-        "vars_file": vars_file,
-        "plain": plain,
-    }
-    for k, v in cli_args.items():
-        if v is not None:
-            cfg[k] = v
+    for source in sources:
+        if source:
+            for key, value in source.items():
+                if value is not None:
+                    cfg[key] = value
+
     return cfg
 
 
-def ensure_valid_args(
+def merge_config_files(
+    *,
+    file_name: str | None = None,
+    output: str | None = None,
+    plain: bool | None = None,
+    no_json: bool = False,
+    no_pyproject: bool = False,
+    no_env: bool = False,
+) -> dict[str, Any]:
+    """Merge configuration from files, environment, and CLI args."""
+    json_cfg = {} if no_json else load_json_config()
+    toml_cfg = {} if no_pyproject else load_pyproject_config()
+    env_cfg = {} if no_env else load_env_config()
+    cli_cfg = {"file_name": file_name, "output": output, "plain": plain}
+
+    return merge_config_dicts(
+        cli=cli_cfg,
+        json=json_cfg,
+        toml=toml_cfg,
+        env=env_cfg,
+    )
+
+
+
+# ----------------------------
+# Argument validation
+# ----------------------------
+
+def validate_args(
     file_name: str | None,
     output: str | None,
-    bold_values: str | None,
-    auto_break: bool,
-    plain: bool,
-    vars_file: str | None,
-)->bool:
-    """
-    Validate command arguments and exit with an error message if invalid.
-
-    Ensures required arguments are provided and files exist. Also prevents
-    dangerous overwrites where output file is the same as input file.
-    """
-    hlp = '(--help for details'
+) -> bool:
+    """Validate command arguments and exit with error if invalid."""
+    hlp = "(--help for details)"
     if file_name is None:
         typer.echo(f"Error: Please provide a markdown file to process {hlp}", err=True)
         raise typer.Exit(code=1)
@@ -161,35 +177,48 @@ def ensure_valid_args(
     if output is not None:
         output_path = pathlib.Path(output)
         if output_path.resolve() == file_path.resolve():
-            typer.echo(msg = f"Error: '{output}' and input '{file_name}' must differ.{hlp}", err=True)
+            typer.echo(f"Error: '{output}' and input '{file_name}' must differ. {hlp}", err=True)
             raise typer.Exit(code=1)
 
     return True
 
-def handle_update_markdown_file(
-        cfg: dict[str, Any],
-        file_name: str | None = None,
-        bold: str | None = None,
-        auto_break: bool | None = None,
-        vars_file: pathlib.Path | None = None,
-) -> str:
-    """Wrapper to call update_markdown_file using merged cfg."""
-    file_name = file_name or cfg.get("file_name")
-    bold = bold or cfg.get("bold_values")
-    auto_break = auto_break if auto_break is not None else cfg.get("auto_break", False)
-    vars_file = vars_file or cfg.get("vars_file")
 
+def validate_args_expanded(cfg: dict[str, Any]) -> bool:
+    """Expanded version accepting full config dict."""
+    return validate_args(
+        file_name=cfg.get("file_name"),
+        output=cfg.get("output"),
+    )
+
+
+# ----------------------------
+# Markdown processing
+# ----------------------------
+
+def transform_markdown_file(
+        file_name: str,
+        output: str | None = None,
+        bold_values: str | None = None,
+        auto_break: bool = True,
+) -> str:
+    """Process a file using update_markdown_file with explicit arguments."""
     try:
-        updated_content = update_markdown_file(file_name,
-                                               bold,
-                                               auto_break,
-                                               cfg.get("output"),
-                                               vars_file)
+        updated_content = update_markdown_file(file_name, bold_values, auto_break, output)
         typer.echo(f"File '{file_name}' updated successfully.", err=True)
     except FileNotFoundError as e:
         typer.echo(f"Error: {e}", err=True)
         updated_content = ""
     return updated_content
+
+
+def transform_markdown_file_expanded(cfg: dict[str, Any]) -> str:
+    """Process a file using update_markdown_file with full config dict."""
+    return transform_markdown_file(
+        file_name=cfg.get("file_name"),
+        output=cfg.get("output"),
+        bold_values=cfg.get("bold_values"),
+        auto_break=cfg.get("auto_break", True),
+    )
 
 
 # ----------------------------
@@ -198,70 +227,27 @@ def handle_update_markdown_file(
 
 @app.command()
 def convert(
-    file_name: str = typer.Argument(
-        None,
-        help="The file to convert to Markdown (required unless specified in config)"
-    ),
-    output: Optional[str] = typer.Option(
-        None,
-        "--output", "-o",
-        help="Output file. If not specified, prints to stdout or overwrites input file"
-    ),
-    bold_values: Optional[str] = typer.Option(
-        None,
-        "--bold", "-b",
-        help="Comma-separated values to make bold (e.g., CSV headers)"
-    ),
-    auto_break: Optional[bool] = typer.Option(
-        True,
-        "--auto-break/--no-auto-break",
-        help="Enable or disable automatic line breaks in CSV headers or long lines"
-    ),
-    plain: bool = typer.Option(
-        False,
-        "--plain",
-        help="Output plain Markdown without Rich formatting"
-    ),
-    version: bool = typer.Option(
-        False,
-        "--version", "-V",
-        callback=version_callback,
-        help="Show the application version and exit"
-    ),
-    vars_file: pathlib.Path | None = typer.Option(
-        None,
-        "--vars", "-v",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        help="Path to JSON file with variable overrides"
-    ),
-    pyproject_dir: pathlib.Path | None = typer.Option(
-        None,
-        "--pyproject_dir", "-p",
-        help="Directory to start searching for pyproject.toml (default: cwd, searches up the tree)"
-    ),
-    base_path: pathlib.Path | None = typer.Option(
-        None,
-        "--base_path",
-        help="Root folder for project, used for locating JSON config and relative paths (default: cwd)"
-    )
+    file_name: str = typer.Argument(None, help="The file to convert to Markdown (required unless in config)"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file or stdout"),
+    plain: bool = typer.Option(False, "--plain", help="Output plain Markdown without Rich formatting"),
+    version: bool = typer.Option(False, "--version", "-V", callback=version_callback, help="Show version"),
+    no_json: bool = typer.Option(False, "--no_json", help="Disable loading mdfile.json"),
+    no_pyproject: bool = typer.Option(False, "--no_pyproject", help="Disable loading pyproject.toml"),
+    no_env: bool = typer.Option(False, "--no_env", help="Disable loading environment variables"),
 ):
-    """Convert a file to Markdown based on its extension, using merged configuration."""
+    """Convert a file to Markdown using merged configuration."""
 
-    cfg = merge_config(
+    cfg = merge_config_files(
         file_name=file_name,
         output=output,
-        bold_values=bold_values,
-        auto_break=auto_break,
-        vars_file=vars_file,
         plain=plain,
-        base_path=base_path,
-        pyproject_dir=pyproject_dir,
+        no_json=no_json,
+        no_pyproject=no_pyproject,
+        no_env=no_env,
     )
 
-    ensure_valid_args(cfg)
-    markdown_text = handle_update_markdown_file(cfg)
+    validate_args_expanded(cfg)
+    markdown_text = transform_markdown_file_expanded(cfg)
 
     # Output
     out_file = cfg.get("output")

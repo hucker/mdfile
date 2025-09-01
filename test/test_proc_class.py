@@ -1,7 +1,7 @@
 import pytest
 import textwrap
-from mdfile.updater.process import ProcessReplacer,ProcessBlockReplacer
-from mdfile.updater.process import ShellBlockReplacer,ShellReplacer
+from updater.process import ProcessReplacer,ProcessBlockReplacer
+from updater.process import ShellBlockReplacer,ShellReplacer
 
 
 
@@ -19,19 +19,15 @@ def test_update_process_command():
     assert "<!--process ls-->" in result
     assert "<!--process end-->" in result
 
-    # The output should contain some files like test_mnm.py
-    assert "test_mnm.py" in result
-
     # The output format should match our expected structure
     # Output is between the process tags, on a separate line
     lines = result.strip().split('\n')
     assert len(lines) >= 3  # At least opening tag, content, closing tag
     assert lines[0] == "<!--process ls-->"
     assert lines[-1] == "<!--process end-->"
-    # There should be atleast an input
-    assert 'input' in lines
-    assert 'test_mnm.py' in lines
-    assert 'output' in lines
+    # There should be atleast an input.  This is pretty crude in that it just checks that
+    # some "stuff" is in the output rather than the exact "stuff"
+    assert 'mdfile.json' in lines
 
 
 

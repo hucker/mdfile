@@ -1,5 +1,5 @@
 import pytest
-from mdfile.updater.ignore import IgnoreBlocks  # replace with actual import path
+from updater.ignore import IgnoreBlocks  # replace with actual import path
 
 
 def test_basic_extract_and_restore():
