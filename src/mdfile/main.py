@@ -24,16 +24,18 @@ import pathlib
 from importlib.metadata import version
 from typing import Optional, Any, Dict
 
-import typer
-from rich.console import Console
-from rich.markdown import Markdown
-from md_updater import update_markdown_file
-
 # tomllib fallback for Python 3.10
 if sys.version_info < (3, 11):
     import tomli as tomllib
 else:
     import tomllib
+
+import typer
+from rich.console import Console
+from rich.markdown import Markdown
+from md_updater import update_markdown_file
+from util.dotted_dict import DottedDict as dd
+
 
 __app_name__ = "mdfile"
 __version__ = version(__app_name__)
@@ -68,7 +70,8 @@ def load_json_config(path: pathlib.Path | None = None) -> dict[str, Any]:
     if not path.exists():
         return {}
     with path.open("rt") as f:
-        return json.load(f)
+        #return json.load(f)
+        return dd.DottedDict(json.load(f))
 
 
 def find_pyproject(start: pathlib.Path | None = None,
@@ -204,7 +207,7 @@ def transform_markdown_file(
     """Process a file using update_markdown_file with explicit arguments."""
     try:
         updated_content = update_markdown_file(file_name, bold_values, auto_break, output)
-        typer.echo(f"File '{file_name}' updated successfully.", err=True)
+        typer.echo(f"File '{output}' updated successfully.", err=True)
     except FileNotFoundError as e:
         typer.echo(f"Error: {e}", err=True)
         updated_content = ""
