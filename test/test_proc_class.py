@@ -9,21 +9,21 @@ from updater.process import ShellBlockReplacer,ShellReplacer
 def test_update_process_command():
     """Test that process commands are executed and their output is inserted."""
     # Test input with process placeholder
-    test_input = """<!--process ls-->\n<!--process end-->"""
+    test_input = """<!--process "ls"-->\n<!--process end-->"""
 
-    # Update the markdown
+    # Update the Markdown
     pbr = ProcessBlockReplacer()
     result = pbr.update(test_input)
 
     # Verify that the process command was executed
-    assert "<!--process ls-->" in result
+    assert """<!--process "ls"-->""" in result
     assert "<!--process end-->" in result
 
     # The output format should match our expected structure
     # Output is between the process tags, on a separate line
     lines = result.strip().split('\n')
     assert len(lines) >= 3  # At least opening tag, content, closing tag
-    assert lines[0] == "<!--process ls-->"
+    assert lines[0] == """<!--process "ls"-->"""
     assert lines[-1] == "<!--process end-->"
     # There should be atleast an input.  This is pretty crude in that it just checks that
     # some "stuff" is in the output rather than the exact "stuff"
@@ -51,7 +51,7 @@ def test_process_cat_verifies_function_declarations(tmp_path):
     test_file.write_text(file_content)
 
     # Input content with process placeholder for cat command
-    test_input = f"<!--process cat {test_file}-->\n<!--process end-->"
+    test_input = f"""<!--process "cat {test_file}"-->\n<!--process end-->"""
 
     # Run the ProcessBlockReplacer
     pbr = ProcessBlockReplacer()
@@ -72,7 +72,7 @@ def test_process_cat_verifies_function_declarations(tmp_path):
         assert func_decl in result, f"Function declaration '{func_decl}' not found in cat output"
 
     # Verify placeholder structure is intact
-    assert result.startswith(f"<!--process cat {test_file}-->\n")
+    assert result.startswith(f"""<!--process "cat {test_file}"-->\n""")
     assert "<!--process end-->" in result
 
 
@@ -92,7 +92,7 @@ def test_process_replacer_cat(tmp_path):
     test_file.write_text(file_content)
 
     # Input content with the process placeholder
-    test_input = f"{{{{process cat {test_file}}}}}"
+    test_input = f'{{{{process "cat {test_file}"}}}}'
 
     # Create the replacer and update the content
     replacer = ProcessReplacer(timeout_sec=5)
@@ -114,19 +114,19 @@ def test_process_replacer_cat(tmp_path):
     [
         (
             ProcessBlockReplacer,
-            """<!--process sleep 5-->\n<!--process end-->"""
+            """<!--process "sleep 5"-->\n<!--process end-->"""
         ),
         (
             ProcessReplacer,
-            r"""{{process sleep 5}}"""
+            r"""{{process "sleep 5"}}"""
         ),
         (
                 ShellBlockReplacer,
-                """<!--shell sleep 5-->\n<!--shell end-->"""
+                """<!--shell "sleep 5"-->\n<!--shell end-->"""
         ),
         (
                 ShellReplacer,
-                r"""{{shell sleep 5}}"""
+                r"""{{shell "sleep 5"}}"""
         ),
     ],
 )
@@ -149,13 +149,13 @@ def test_process_command_timeout(cls, test_input):
     [
         (
                 ShellReplacer,
-                "{{shell echo hello}}\n",
+                """{{shell "echo hello"}}\n""",
                 "```bash\n>> echo hello\nhello\n\n```\n",
         ),
         (
                 ShellBlockReplacer,
-                "<!--shell echo hello-->\nold stuff\n<!--shell end-->\n",
-                "<!--shell echo hello-->\n```bash\n>> echo hello\nhello\n\n```\n<!--shell end-->\n",
+                """<!--shell "echo hello"-->\nold stuff\n<!--shell end-->\n""",
+                """<!--shell "echo hello"-->\n```bash\n>> echo hello\nhello\n\n```\n<!--shell end-->\n""",
         ),
     ],
 )

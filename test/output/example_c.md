@@ -2,7 +2,7 @@
 
 Here is some embedded C code:
 
-<!--file input/c.c-->
+<!--file "input/c.c"-->
 ```c
 #include <stdio.h>
 

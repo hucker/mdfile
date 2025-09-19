@@ -1,8 +1,8 @@
 """
 File replacer module.
 
-Provides classes for replacing file placeholders or blocks within markdown
-content with the corresponding file contents rendered via a markdown factory.
+Provides classes for replacing file placeholders or blocks within Markdown
+content with the corresponding file contents rendered via a Markdown factory.
 Supports both inline placeholders (`{{file ...}}`) and block placeholders
 (`<!--file ...--> ... <!--file end-->`).
 """
@@ -10,12 +10,13 @@ Supports both inline placeholders (`{{file ...}}`) and block placeholders
 import pathlib
 import re
 from abc import ABC, abstractmethod
-from typing import ClassVar
+from typing import ClassVar,Optional
 from to_md.md_factory import markdown_factory
+from updater.str_utils import unquote
 
 class BaseReplacer(ABC):
     """
-    Base class for replacing file placeholders or blocks with markdown content.
+    Base class for replacing file placeholders or blocks with Markdown content.
 
     Subclasses must define:
       * PLACEHOLDER_PATTERN: Regex pattern used to locate placeholders.
@@ -37,6 +38,9 @@ class BaseReplacer(ABC):
         self.bold_vals: list[str] = bold.split(",") if bold else []
         self.auto_break: bool = auto_break
 
+
+
+
     @abstractmethod
     def _format_success(self, pattern: str, output: str) -> str:
         """
@@ -44,7 +48,7 @@ class BaseReplacer(ABC):
 
         Args:
             pattern (str): File glob pattern.
-            output (str): Combined markdown content for all matching files.
+            output (str): Combined Markdown content for all matching files.
 
         Returns:
             str: Formatted replacement block.
@@ -82,19 +86,20 @@ class BaseReplacer(ABC):
             content (str): Markdown content containing placeholders.
 
         Returns:
-            str: Updated markdown content with placeholders replaced.
+            str: Updated Markdown content with placeholders replaced.
         """
         matches: list[re.Match[str]] = list(self.PLACEHOLDER_PATTERN.finditer(content))
         new_content: str = content
 
         for match in matches:
             file_pattern: str = match.group(1).strip()
+            file_pattern =unquote(file_pattern)
             old_block: str = match.group(0)
 
             matching_files: list[pathlib.Path] = list(pathlib.Path().glob(file_pattern))
 
             if matching_files:
-                # Generate markdown for all matched files using a comprehension
+                # Generate Markdown for all matched files using a comprehension
                 markdown_parts: list[str] = [
                     markdown_factory(
                         str(file_path),
@@ -147,7 +152,7 @@ class FileReplacer(BaseReplacer):
             pattern (str): File glob pattern.
 
         Returns:
-            str: Warning message in markdown.
+            str: Warning message in Markdown.
         """
         return f"**Warning:** No files found matching the pattern '{pattern}'."
 
@@ -158,12 +163,12 @@ class FileBlockInsertReplacer(BaseReplacer):
 
     Example:
         Input:
-            <!--file example.txt-->
+            <!--file "example.txt"-->
             old stuff
             <!--file end-->
 
         Output:
-            <!--file example.txt-->
+            <!--file "example.txt"-->
             <markdown for example.txt>
             <!--file end-->
     """
@@ -184,7 +189,7 @@ class FileBlockInsertReplacer(BaseReplacer):
         Returns:
             str: Wrapped block with file markers.
         """
-        return f"<!--file {pattern}-->\n{output}\n<!--file end-->"
+        return f'<!--file "{pattern}"-->\n{output}\n<!--file end-->'
 
     def _format_failure(self, pattern: str) -> str:
         """
@@ -197,7 +202,7 @@ class FileBlockInsertReplacer(BaseReplacer):
             str: Block with a no-file-found comment.
         """
         return (
-            f"<!--file {pattern}-->\n"
+            f'<!--file "{pattern}"-->\n'
             f"<!-- No files found matching pattern '{pattern}' -->\n"
             f"<!--file end-->"
         )

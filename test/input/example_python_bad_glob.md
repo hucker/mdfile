@@ -2,5 +2,5 @@
 
 Here a bad glob:
 
-<!--file input/XFAF*.py-->
+<!--file "input/XFAF*.py"-->
 <!--file end-->

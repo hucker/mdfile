@@ -247,7 +247,7 @@ def test_process_command_timeout():
 
     # Create a test input with a process that will time out
     # The 'sleep' command will run for 5 seconds, but we set timeout to 1 second
-    test_input = """<!--process sleep 5-->\n<!--process end-->"""
+    test_input = """<!--process "sleep 5"-->\n<!--process end-->"""
 
     # Execute the update_process_inserts function with a 1-second timeout
     result = ProcessBlockReplacer(timeout_sec=1).update(content=test_input)
@@ -257,7 +257,7 @@ def test_process_command_timeout():
     assert "timed out after 1 seconds" in result, "Specific timeout duration message missing"
 
     # Verify the process command was properly formatted in the result
-    assert result.startswith("<!--process sleep 5-->"), "Process command header missing"
+    assert result.startswith("""<!--process "sleep 5"-->"""), "Process command header missing"
     assert "<!--process end-->" in result, "Process command footer missing"
 
 def xxxtest_csv_to_markdown_empty_file():
@@ -304,7 +304,7 @@ def xxxtest_glob_pattern_in_file_inserts(input_md_filename):
     # Check if the test file exists
     assert input_md.exists(), f"Input file {input_md_filename} does not exist."
 
-    # Create a test markdown content with a glob pattern
+    # Create a test Markdown content with a glob pattern
     markdown_content = input_md.read_text()
 
     # Process the file insertions
@@ -324,7 +324,7 @@ def xxxtest_bad_glob_pattern_error_message():
     # Create a Path object for the input file
     input_md = pathlib.Path("input/example_python_bad_glob.md")
 
-    # Read the markdown content from the file
+    # Read the Markdown content from the file
     markdown_content = input_md.read_text()
 
     # Process the file insertions

@@ -8,16 +8,17 @@ import sys
 # tomllib fallback for Python 3.10
 if sys.version_info < (3, 11):
     import tomli as tomllib
-else: import tomllib
+else:
+    pass
 
 import pytest
 
-from main import DEFAULT_CONFIG, merge_config_dicts,merge_config_files  # adjust import path
+from main import DEFAULT_CONFIG, merge_config_dicts, merge_config_files  # adjust import path
 from main import find_pyproject, load_pyproject_config  # adjust import
 
 
 @pytest.mark.parametrize(
-    "cli,json_cfg,toml,env,expected_update,desc",
+    "cli_cfg,json_cfg,toml_cfg,env_cfg,expected_update,desc",
     [
         # Only defaults
         (None, None, None, None, {}, "No sources, should return defaults"),
@@ -41,10 +42,13 @@ from main import find_pyproject, load_pyproject_config  # adjust import
     ]
 )
 def test_merge_config_dicts_param(
-        cli, json_cfg, toml, env, expected_update, desc
+        cli_cfg, json_cfg, toml_cfg, env_cfg, expected_update, desc
 ):
     """Parametrized thorough test of merge_config_dicts."""
-    result = merge_config_dicts(cli=cli or {}, json=json_cfg or {}, toml=toml or {}, env=env or {})
+    result = merge_config_dicts(cli_cfg=cli_cfg or {},
+                                json_cfg=json_cfg or {},
+                                toml_cfg=toml_cfg or {},
+                                env_cfg=env_cfg or {})
     expected = DEFAULT_CONFIG.copy()
     expected.update(expected_update)
 
@@ -97,22 +101,25 @@ def test_merge_config_dicts_fuzz(seed: int):
     random.seed(seed)
 
     # Generate random dictionaries for each config source
-    cli = {random_key(): random_value() for _ in range(random.randint(1, 5))}
+    cli_cfg = {random_key(): random_value() for _ in range(random.randint(1, 5))}
     json_cfg = {random_key(): random_value() for _ in range(random.randint(1, 5))}
-    toml = {random_key(): random_value() for _ in range(random.randint(1, 5))}
-    env = {random_key(): random_value() for _ in range(random.randint(1, 5))}
+    toml_cfg = {random_key(): random_value() for _ in range(random.randint(1, 5))}
+    env_cfg = {random_key(): random_value() for _ in range(random.randint(1, 5))}
 
-    result = merge_config_dicts(cli=cli, json=json_cfg, toml=toml, env=env)
+    result = merge_config_dicts(cli_cfg=cli_cfg,
+                                json_cfg=json_cfg,
+                                toml_cfg=toml_cfg,
+                                env_cfg=env_cfg)
 
     # Verify that CLI keys override everything else
-    for k in cli:
-        if cli[k] is not None:
-            assert result[k] == cli[k], f"CLI key {k} should override others"
+    for k in cli_cfg:
+        if cli_cfg[k] is not None:
+            assert result[k] == cli_cfg[k], f"CLI key {k} should override others"
 
     # Verify lower-precedence sources do not overwrite keys with None
-    for d in (json_cfg, toml, env):
+    for d in (json_cfg, toml_cfg, env_cfg):
         for k, v in d.items():
-            if v is not None and k not in cli:
+            if v is not None and k not in cli_cfg:
                 assert result[k] == v or k in DEFAULT_CONFIG, f"Key {k} should be present unless overridden by CLI"
 
     # Verify defaults are preserved for missing keys
@@ -120,10 +127,6 @@ def test_merge_config_dicts_fuzz(seed: int):
         if k not in result:
             assert result[k] == v, f"Default key {k} missing in result"
 
-import os
-import json
-import pathlib
-import pytest
 
 @pytest.mark.parametrize(
     "no_json, no_pyproject, no_env, expected_keys",
@@ -172,7 +175,7 @@ def test_merge_config_files(tmp_path: pathlib.Path, monkeypatch,
 
     # --- Verify that expected keys are present ---
     for key in expected_keys:
-        assert key in cfg, f"Expected key '{key}' missing in config"
+        assert key in cfg and cfg[key], f"Expected key '{key}' missing in config"
 
     # Optionally, verify that keys not expected from sources are from defaults
     # (not required but can be added if you want)
@@ -208,6 +211,7 @@ def test_find_pyproject(tmp_path: pathlib.Path):
     # Case: start from above → should not find file
     found_none = find_pyproject(start=tmp_path)
     assert found_none is None
+
 
 # -----------------------------
 # Test 2: Reading pyproject.toml content

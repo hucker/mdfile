@@ -23,12 +23,12 @@ def test_update_file_from_another_file():
             the expected result.
     """
     try:
-        # Paths for the markdown file and the input text file
+        # Paths for the Markdown file and the input text file
         md_file_path = pathlib.Path("123_test.md")
         input_file_path = pathlib.Path("123_test.txt")
 
-        # Write initial content to the markdown file
-        md_file_content = f"<!--file 123_test.txt-->\n<!--file end-->"
+        # Write initial content to the Markdown file
+        md_file_content = f'<!--file "123_test.txt"-->\n<!--file end-->'
         md_file_path.write_text(md_file_content)
 
         # Write initial content to the input text file
@@ -43,8 +43,8 @@ def test_update_file_from_another_file():
         # Pass arguments in a single string with spaces instead of as separate items
         result = runner.invoke(app, [str(md_file_path)])
 
-        # Expected content of the updated markdown file
-        expected_md_file_content = f"<!--file 123_test.txt-->\n```\nHello\nWorld\n```\n<!--file end-->"
+        # Expected content of the updated Markdown file
+        expected_md_file_content = f'<!--file "123_test.txt"-->\n```\nHello\nWorld\n```\n<!--file end-->'
 
         # Verify the CLI executed successfully
         assert result.exit_code == 0, f"CLI failed: {result.output}"
@@ -95,13 +95,13 @@ def test_update_file_with_output_flag():
     output_file_path = None
 
     try:
-        # Paths for the markdown file, input text file, and output file
+        # Paths for the Markdown file, input text file, and output file
         md_file_path = pathlib.Path("123_test.md")
         input_file_path = pathlib.Path("123_test.txt")
         output_file_path = pathlib.Path("123_test_output.md")
 
         # Write initial content to the Markdown file
-        md_file_content = f"<!--file 123_test.txt-->\n<!--file end-->"
+        md_file_content = f"""<!--file "123_test.txt"-->\n<!--file end-->"""
         md_file_path.write_text(md_file_content)
 
         # Write initial content to the input text file
@@ -120,7 +120,7 @@ def test_update_file_with_output_flag():
         ])
 
         # Expected content of the updated Markdown file
-        expected_md_file_content = f"<!--file 123_test.txt-->\n```\nHello\nWorld\n```\n<!--file end-->"
+        expected_md_file_content = f"""<!--file "123_test.txt"-->\n```\nHello\nWorld\n```\n<!--file end-->"""
 
         # Verify the CLI executed successfully
         assert result.exit_code == 0, f"CLI failed: {result.output}"
@@ -161,7 +161,7 @@ def test_missing_filename_error():
     result = runner.invoke(app, ["--no_json"])
 
     assert result.exit_code == 1
-    assert "Error: Please provide a markdown file to process" in result.stderr
+    assert "Error: Please provide a Markdown file to process" in result.stderr
 
 
 def test_missing_filename_error_with_multiple_options():
@@ -172,5 +172,5 @@ def test_missing_filename_error_with_multiple_options():
     ])
 
     assert result.exit_code == 1
-    assert "Error: Please provide a markdown file to process" in result.stderr
+    assert "Error: Please provide a Markdown file to process" in result.stderr
 

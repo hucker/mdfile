@@ -1,1 +1,1 @@
-{{process cat input/python.py}}
+{{process "cat input/python.py"}}

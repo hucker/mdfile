@@ -12,7 +12,7 @@ from .text_to_md import TextToMarkdown
 
 def markdown_factory(filename: str, **kwargs):
     """
-    Creates the appropriate markdown converter based on file extension.
+    Creates the appropriate Markdown converter based on file extension.
 
     This factory function examines the provided file's extension and instantiates
     the corresponding converter class. All keyword arguments are passed through to
@@ -20,7 +20,7 @@ def markdown_factory(filename: str, **kwargs):
     to its functionality.
 
     Args:
-        filename (str): Path to the file that needs conversion to markdown.
+        filename (str): Path to the file that needs conversion to Markdown.
         **kwargs: Additional keyword arguments that will be passed to the converter.
             CSV-specific parameters:
                 auto_break (bool): Whether to insert line breaks in CSV headers.

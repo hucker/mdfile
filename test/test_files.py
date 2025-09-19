@@ -166,7 +166,7 @@ def test_glob_pattern_in_file_inserts(input_md_filename):
     # Check if the test file exists
     assert input_md.exists(), f"Input file {input_md_filename} does not exist."
 
-    # Create a test markdown content with a glob pattern
+    # Create a test Markdown content with a glob pattern
     markdown_content = input_md.read_text()
 
     # Process the file insertions
@@ -184,7 +184,7 @@ def test_bad_glob_pattern_error_message():
     # Create a Path object for the input file
     input_md = pathlib.Path("input/example_python_bad_glob.md")
 
-    # Read the markdown content from the file
+    # Read the Markdown content from the file
     markdown_content = input_md.read_text()
 
     # Process the file insertions
@@ -195,7 +195,7 @@ def test_bad_glob_pattern_error_message():
     assert expected_error in result, "Error message for no matching files not found in result"
 
     # Verify that the original tags are preserved
-    assert f"<!--file input/XFAF*.py-->" in result, "Original file tag not preserved"
+    assert f'<!--file "input/XFAF*.py"-->' in result, "Original file tag not preserved"
     assert "<!--file end-->" in result, "End file tag not preserved"
 
     # Make sure no Python code block was included (since no files matched)

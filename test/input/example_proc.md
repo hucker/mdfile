@@ -1,2 +1,2 @@
-<!--process cat input/python2.py-->
+<!--process "cat input/python2.py"-->
 <!--process end-->

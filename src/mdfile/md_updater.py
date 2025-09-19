@@ -9,7 +9,7 @@ from updater.process import ShellReplacer
 from updater.process import ShellBlockReplacer
 from updater.files import FileBlockInsertReplacer
 from updater.files import FileReplacer
-
+from updater.validator import Validator,Tokenizer
 
 
 
@@ -28,7 +28,7 @@ def update_markdown_from_string(content: str,
                                 auto_break: bool,
                                 ) -> str:
     """
-    Transform the markdown string with all the class based replacements.
+    Transform the Markdown string with all the class based replacements.
 
     Supported placeholders:
         1. <!--file <glob_pattern>--> : Replaces with the Markdown tables based on file extension
@@ -44,6 +44,9 @@ def update_markdown_from_string(content: str,
         str: The updated Markdown content with placeholders replaced.
     """
     try:
+        tokens = list(Tokenizer().tokenize(content))
+        validator = Validator()
+        validator.validate(tokens)
 
         ignore = IgnoreBlocks()
 

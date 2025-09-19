@@ -2,7 +2,7 @@
 
 Here is some embedded JSON code:
 
-<!--file input/json.json-->
+<!--file "input/json.json"-->
 ```json
 {
     "name": "John Doe",

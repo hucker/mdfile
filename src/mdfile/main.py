@@ -34,7 +34,7 @@ import typer
 from rich.console import Console
 from rich.markdown import Markdown
 from md_updater import update_markdown_file
-from util.dotted_dict import DottedDict as dd
+from util.dotted_dict import DottedDict
 
 
 __app_name__ = "mdfile"
@@ -71,7 +71,7 @@ def load_json_config(path: pathlib.Path | None = None) -> dict[str, Any]:
         return {}
     with path.open("rt") as f:
         #return json.load(f)
-        return dd.DottedDict(json.load(f))
+        return DottedDict(json.load(f))
 
 
 def find_pyproject(start: pathlib.Path | None = None,
@@ -112,10 +112,10 @@ def load_env_config() -> dict[str, Any]:
 
 def merge_config_dicts(
     *,
-    cli: dict[str, Any] | None = None,
-    json: dict[str, Any] | None = None,
-    toml: dict[str, Any] | None = None,
-    env: dict[str, Any] | None = None,
+    cli_cfg: dict[str, Any] | None = None,
+    json_cfg: dict[str, Any] | None = None,
+    toml_cfg: dict[str, Any] | None = None,
+    env_cfg: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Merge configuration from named sources.
 
@@ -123,9 +123,8 @@ def merge_config_dicts(
     Precedence: defaults → json → toml → env → cli
     """
     cfg: dict[str, Any] = DEFAULT_CONFIG.copy()
-    sources = [json, toml, env, cli]
 
-    for source in sources:
+    for source in [json_cfg, toml_cfg, env_cfg, cli_cfg]:
         if source:
             for key, value in source.items():
                 if value is not None:
@@ -150,10 +149,10 @@ def merge_config_files(
     cli_cfg = {"file_name": file_name, "output": output, "plain": plain}
 
     return merge_config_dicts(
-        cli=cli_cfg,
-        json=json_cfg,
-        toml=toml_cfg,
-        env=env_cfg,
+        cli_cfg=cli_cfg,
+        json_cfg=json_cfg,
+        toml_cfg=toml_cfg,
+        env_cfg=env_cfg,
     )
 
 
@@ -169,7 +168,7 @@ def validate_args(
     """Validate command arguments and exit with error if invalid."""
     hlp = "(--help for details)"
     if file_name is None:
-        typer.echo(f"Error: Please provide a markdown file to process {hlp}", err=True)
+        typer.echo(f"Error: Please provide a Markdown file to process {hlp}", err=True)
         raise typer.Exit(code=1)
 
     file_path = pathlib.Path(file_name)

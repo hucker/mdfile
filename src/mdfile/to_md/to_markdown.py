@@ -63,7 +63,7 @@ class ToMarkdown(ABC):
         """Subclasses must override this method."""
 
     def to_full_markdown(self):
-        """Generate full markdown including any headers and footers that might be configured.
+        """Generate full Markdown including any headers and footers that might be configured.
 
         The method calls to_markdown() and adds timestamp footer if date_stamp is True.
 

@@ -5,8 +5,9 @@ Perfect for keeping code samples, data, and command outputs in sync with your do
 
 MDFile supports directly copying data into Markdown files using the following format:
 
+<!-- ignore -->
 ```markdown
-# My Project - {{$version}}
+# My Project - {{$meta.mdfile.version}}
 
 Check out this function:
 
@@ -19,6 +20,7 @@ Files used in this project:
 Example Run:
 {{shell python example.py}}
 ```
+<!-- ignore end -->
 
 After running `mdfile`,  you would have where each of the {{}} macros are expanded into the file.
 
@@ -73,12 +75,16 @@ def hello_world():
 ```
 
 **In your README.mdd:**
+
+<!-- ignore     -->
+
 ```markdown
 # My Project
 
 Check out this function:
 {{file example.py}}
 ```
+<!-- ignore end -->
 
 **After running `mdfile` README.md:**
 ````markdown
@@ -100,7 +106,9 @@ below the `cat` command is used to copy the data into the Markdown file, but any
 Keep in mind that some tools act differently when they are generating data for a tty compared to 
 when they are piping data into a file.
 
+<!-- ignore -->
 `{{process cat factorial.py}}`
+<!-- ignore end -->
 
 ```text
 def factorial(n:int):
@@ -214,6 +222,8 @@ West,117000,142000,138000,162000,559000
 Total,490000,528000,543000,645000,2206000
 ```
 #### Markdown Document with Inclusion: `report.md`
+
+<!-- ignore -->
 ``` markdown
 # Quarterly Sales Report
 
@@ -226,6 +236,8 @@ Here's a breakdown of our quarterly sales by region:
 
 As we can see from the data, Q4 had the strongest performance across all regions.
 ```
+<!-- ignore end -->
+
 #### After Running `MDFile`:
 ``` bash
 uvx mdfile report.md --bold "Total" -o final_report.md
@@ -260,6 +272,7 @@ As we can see from the data, Q4 had the strongest performance across all regions
 {"name":"John Doe","age":30,"isStudent":false,"grades":[78,85,90],"address":{"street":"123 Main St","city":"New York","zip":"10001"}}
 ```
 
+<!-- ignore -->
 ``` markdown
 ## Configuration
 
@@ -268,8 +281,11 @@ The default configuration is:
 <!--file "path/to/config.json"-->
 <!--file end-->
 ```
+<!-- ignore end -->
 
 The updated `README.md` file is shown below with the JSON pretty printed.
+
+<!-- ignore -->
 
 ```` markdown
 ## Configuration
@@ -296,6 +312,7 @@ The default configuration is:
 ```
 <!--file end-->
 ````
+<!-- ignore end -->
 
 ## File Type Support
 `MDFile` supports numerous file extensions allowing MarkDown to correctly syntax highlight:
@@ -308,7 +325,7 @@ The default configuration is:
 - Data: `.json`, `.yaml`, `.yml`, `.csv`
 - Configuration: `.ini`, `.cfg`, `.conf`
 - Shell: `.sh`, `.bash`, `.zsh`
-- And many more!
+- And lots more...
 
 These file extensions map use the standard triple back tick text blocks available in Markdown.
 
@@ -317,42 +334,96 @@ When converting CSV files, you have additional options.
 - `bold VALUE1,VALUE2,...` - Make specific columns bold in the table
 - `auto-break` - Control automatic line breaks in CSV headers
 
-These values may be set in `pyproject.toml`
+These values may be set in `pyproject.toml`, `mdfile.json` and enviroment varaibles (if you are insane).
 
 ## Variable Substitution
-`mdfile` supports a basic form of variable substitution.  At this time the following are supported:
+`mdfile` supports a basic form of variable substitution that follows very simple replacement
+rules.  You cannot nest names. At this time the `date` and `time` are available that indicated
+when the tool was run. You may also pull variables directly from the environment, you can
+pull metadata from any python package installed in the project and if you have specified an
+`mdfile.json` dictionary you can pull any value from that file directly as if those variables were
+defined at the top level and finally anything in the `pyprjoect.toml` files `[tool.mdfile]` is available.
 
-| Variable     | Description          |
-|--------------|----------------------|
-| `{{$name}}`    | `mdfile`             |
-| `{{$date}}`    | current date         |
-| `{{$time}}`    | current time         |
-| `{{$version}}` | build version        |
+
+<!-- ignore -->
+| Variable                | Description                                                |
+|-------------------------|------------------------------------------------------------|
+| `{{$date}}`             | current date                                               |
+| `{{$time}}`             | current time                                               |
+| `{{$ENV.(VAR)}}`        | VAR pulled from Environment using os.env                   |
+| `{{$meta.(pkg).(var)}}` | Package metadata variables like (e.g. meta.mdfile.version) |
+!-- ignore end -->
+
+* See `importlib.metadata.metadata` for full list of available variables.
 
 These values are imported directly into the Markdown file with no special Markdown tags, just raw text
-this allows you to have text such as
+this allows you to have text such as:
 
-```App **{{$name}}** version **{{$version}}** was created on {{$date}}```
+<!-- ignore -->
+```App **{{$name}}** version **{{$meta.mdfile.version}}** was created on {{$date}}```
+<!-- ignore end -->
 
-To get the text:
+To get the text
 
 App **mdfile** version **0.10.0** was created on 1/1/2024
+
+Information from the `pyproject.toml` and `mdfile.json` can be read using "dotted" notation in
+the event that data in thos files is nested.  So if your mdfile.json is
+
+```json
+{
+  "var1": 12,
+  "var2": {
+    "name": "Chuck"
+  }
+}
+```
+
+You could write:
+<!--ignore-->
+`My name is {{$var2.name}}.`
+<!--ignore end-->
+
+to get:
+
+`My name is Chuck`
 
 ## Environment Substitution
 
 Environment variables may also be inserted into your Markdown files using the following notation:
 
+<!-- ignore -->
 ```text
-Root Project Directory = ``{{ENV.PWD}}``
+Root Project Directory = `{{ENV.PWD}}`
 ```
+<!-- ignore end -->
+
 
 ```text
-Root Project Directory = ``/Users/chuck/Projects/mdfile/src/mdfile`
+Root Project Directory = `/Users/chuck/Projects/mdfile/src/mdfile`
 ```
-NOTE: `mdfile` aggressively attempts to block publishing API_KEYS into readme documents if you are noticing 
-that ENV_API_KEY is not substituting into your readme it is being blocked.  If you must (which you shouldn't)
+
+NOTE: `mdfile` aggressively attempts to block publishing API_KEYS into `readme` documents if you are noticing 
+that ENV_API_KEY is not substituting into your readme, it is being blocked.  If you must (which you shouldn't)
 you can give an API KEY a different variable name.  It is likely that won't work since GitHub knows how to
 find the keys by looking at the key itself.
+
+### Ignoring Stuff
+It may happen that you do NOT want the tool to expand variables and modify the text in the README that you 
+are updating. 
+
+The solution to this is to have "ignore blocks".  These blocks are ignored by to tool and passed through
+to the output. It isn't really possible to show the tags in raw markup or else the tool would remove them
+or the Markdown tool would hide them as a comment. They are shown below with backslashes to "escape" the 
+html comments characters. 
+
+```text
+ \<\!\-\- ignore \-\-\>
+ \<\!\-\- ignore end \-\-\>
+```
+
+You should never/rarely need this tool unless you are explaining how to use the tools, and you don't
+want transformations to occur, or you have a very unlikely collision.
 
 ### UVX
 If you installed `mdfile` as a `uv` tool then you can run `mdfile` from anywhere using 

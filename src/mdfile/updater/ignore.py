@@ -4,19 +4,19 @@ import secrets
 
 class IgnoreBlocks:
     """
-    Manage <!-- ignore --> ... <!-- ignore end --> blocks in markdown text.
+    Manage <!-- ignore --> ... <!-- ignore end --> blocks in Markdown text.
 
     Extracts blocks and replaces them with tokens like {{IGNORE_ab12cd34}}.
     Later restores them in place.
 
-    This allows for markdown to have blocks that are ignored by the markdown
-    tool.  This is very useful for times when you are trying to explaing how
-    the markdown tool itself works, so you will want to display markdown
+    This allows for Markdown to have blocks that are ignored by the Markdown
+    tool.  This is very useful for times when you are trying to explain how
+    the Markdown tool itself works, so you will want to display Markdown
     that would be processed.
 
     """
 
-    # Matches <!-- ignore --> ... <!-- ignore end --> blocks in markdown.
+    # Matches <!-- ignore --> ... <!-- ignore end --> blocks in Markdown.
     #
     # Details:
     #   <!--\s*ignore\s*-->      : opening tag, allows extra whitespace
@@ -36,7 +36,7 @@ class IgnoreBlocks:
 
 
     def __init__(self) -> None:
-        self._ignores: list[str] = []
+        self.ignores: list[str] = []
         # Create one unique token for this run
         self._token: str = f"IGNORE_{secrets.token_hex(8)}"
 
@@ -59,10 +59,10 @@ class IgnoreBlocks:
             ValueError: If the token already appears in content.
         """
         if self.token in content:
-            raise ValueError("Reserved ignore token already present in input markdown")
+            raise ValueError("Reserved ignore token already present in input Markdown")
 
         def _replacer(match: re.Match[str]) -> str:
-            self._ignores.append(match.group(0))
+            self.ignores.append(match.group(0))
             return self.token
 
         return self.BLOCK_PATTERN.sub(_replacer, content)
@@ -80,7 +80,7 @@ class IgnoreBlocks:
         Raises:
             ValueError: If tokens are missing during restore.
         """
-        for block in self._ignores:
+        for block in self.ignores:
             if self.token not in content:
                 raise ValueError("Missing token in content during restore")
             content = content.replace(self.token, block, 1)

@@ -2,7 +2,7 @@
 
 Here is some embedded Python code:
 
-<!--file input/python.py-->
+<!--file "input/python.py"-->
 ```python
 def factorial(n:int):
     if n == 0:

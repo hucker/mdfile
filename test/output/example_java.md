@@ -2,7 +2,7 @@
 
 Here is some embedded Java code:
 
-<!--file input/java.java-->
+<!--file "input/java.java"-->
 ```java
 public class Factorial {
     public static long factorial(int n) {

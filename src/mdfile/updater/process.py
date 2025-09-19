@@ -1,7 +1,7 @@
 """
 Process replacer module.
 
-Provides classes for replacing process placeholders or blocks in markdown
+Provides classes for replacing process placeholders or blocks in Markdown
 content with the output of shell commands. Supports both inline placeholders
 (`{{process ...}}`) and block placeholders (`<!--process ...--> ... <!--process end-->`).
 Handles timeouts gracefully using Rich formatting.
@@ -13,8 +13,11 @@ import shlex
 import subprocess
 from abc import ABC, abstractmethod
 from typing import ClassVar
+
 from rich.console import Console
 from rich.panel import Panel
+
+from updater.str_utils import unquote
 
 
 class BaseProcessReplacer(ABC):
@@ -81,6 +84,7 @@ class BaseProcessReplacer(ABC):
 
         for match in matches:
             command: str = match.group(1).strip()
+            command = unquote(command)
             old_block: str = match.group(0)
 
             string_io = io.StringIO()
@@ -130,12 +134,12 @@ class ProcessReplacer(BaseProcessReplacer):
     )
 
     def _format_success(self, command: str, output: str) -> str:
-        """Format successful command output as inline markdown code block."""
+        """Format successful command output as inline Markdown code block."""
         return f"```text\n{output}```"
 
     def _format_timeout(self, command: str, output: str) -> str:
         """Format timed-out command with comment markers."""
-        return f"<!--process {command}-->\n{output}\n<!--process end-->"
+        return f'<!--process "{command}"-->\n{output}\n<!--process end-->'
 
 
 class ProcessBlockReplacer(BaseProcessReplacer):
@@ -163,11 +167,12 @@ class ProcessBlockReplacer(BaseProcessReplacer):
 
     def _format_success(self, command: str, output: str) -> str:
         """Format successful command output as a full block with markers."""
-        return f"<!--process {command}-->\n```text\n{output}\n```\n<!--process end-->"
+        return f'<!--process "{command}"-->\n```text\n{output}\n```\n<!--process end-->'
 
     def _format_timeout(self, command: str, output: str) -> str:
         """Format timed-out command as a block with comment markers."""
-        return f"<!--process {command}-->\n{output}\n<!--process end-->"
+        return f'<!--process "{command}"-->\n{output}\n<!--process end-->'
+
 
 class ShellReplacer(BaseProcessReplacer):
     """Replace {{shell <command>}} placeholders with shell-style output."""
@@ -189,7 +194,7 @@ class ShellReplacer(BaseProcessReplacer):
         return f"```{self.lang}\n>> {command}\n{output}\n```"
 
     def _format_timeout(self, command: str, output: str) -> str:
-        return f"<!--shell {command}-->\n{output}\n<!--shell end-->"
+        return f'<!--shell "{command}"-->\n{output}\n<!--shell end-->'
 
 
 class ShellBlockReplacer(BaseProcessReplacer):
@@ -210,7 +215,7 @@ class ShellBlockReplacer(BaseProcessReplacer):
         self.lang: str = lang
 
     def _format_success(self, command: str, output: str) -> str:
-        return f"<!--shell {command}-->\n```{self.lang}\n>> {command}\n{output}\n```\n<!--shell end-->"
+        return f'<!--shell "{command}"-->\n```{self.lang}\n>> {command}\n{output}\n```\n<!--shell end-->'
 
     def _format_timeout(self, command: str, output: str) -> str:
-        return f"<!--shell {command}-->\n{output}\n<!--shell end-->"
+        return f'<!--shell "{command}"-->\n{output}\n<!--shell end-->'
